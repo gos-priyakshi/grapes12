@@ -1,0 +1,19 @@
+name: grapes
+channels:
+  - pyg
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - pip
+  - pyg
+  - python=3.9
+  - pytorch
+  - scikit-learn
+  - scipy
+  - tqdm
+  - pip:
+    - ogb==1.3.6
+    - typed-argument-parser==1.8.0
+    - wandb==0.13.11
