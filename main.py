@@ -25,7 +25,7 @@ else:
 
 
 class Arguments(Tap):
-    dataset: str = 'flickr'
+    dataset: str = 'cora'
 
     sampling_hops: int = 2
     num_samples: int = 64
