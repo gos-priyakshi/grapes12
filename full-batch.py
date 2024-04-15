@@ -51,8 +51,8 @@ class Arguments(Tap):
 
 
 def train(args: Arguments):
-    wandb.init(project='p-goswami',
-               entity='grapes',
+    wandb.init(project='grapes',
+               entity='p-goswami',
                mode='online' if args.log_wandb else 'disabled',
                config=args.as_dict(),
                notes=args.notes)
