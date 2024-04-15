@@ -25,10 +25,10 @@ else:
 
 
 class Arguments(Tap):
-    dataset: str = 'cora'
+    dataset: str = 'flickr'
 
     sampling_hops: int = 2
-    num_samples: int = 32
+    num_samples: int = 64
     use_indicators: bool = True
     lr_gf: float = 1e-4 # learning rate for the GCN-GF model
     lr_gc: float = 1e-3 # learning rate for the GCN model
@@ -45,7 +45,7 @@ class Arguments(Tap):
     eval_on_cpu: bool = True 
     eval_full_batch: bool = True
 
-    runs: int = 5
+    runs: int = 10
     notes: str = None
     log_wandb: bool = True
     config_file: str = None
