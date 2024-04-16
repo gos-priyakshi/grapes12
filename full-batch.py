@@ -40,7 +40,7 @@ class Arguments(Tap):
     hidden_dim: int = 256
     max_epochs: int = 30
     batch_size: int = 512
-    eval_frequency: int = 5
+    eval_frequency: int = 1
     eval_on_cpu: bool = False
     eval_full_batch: bool = False
 
