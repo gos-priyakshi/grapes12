@@ -21,7 +21,7 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.dropout = dropout
         # self.gcn_layers = nn.ModuleList()
-        self.enery_values = [] # List to store dirichlet energy values
+        self.energy_values = [] # List to store dirichlet energy values
         dims = [in_features] + hidden_dims
         gcn_layers = []
         for i in range(len(dims) - 1):

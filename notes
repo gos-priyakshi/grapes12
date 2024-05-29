@@ -1,0 +1,4 @@
+srun -N 1 --ntasks-per-node=1 --time=72:00:00 -p fatq --gres=gpu:1 --pty bash -i
+
+python /var/scratch/pgo207/grapes12/main.py --config_file=/var/scratch/pgo207/grapes12/configs/yelp.txt
+
