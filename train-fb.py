@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from modules.data import get_data, get_ppi
-from modules.gcnscratch import GCN, ResGCN
+from modules.gcn123 import GCN, ResGCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency)
 
@@ -26,6 +26,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Arguments(Tap):
     dataset: str = 'cora'
+
     sampling_hops: int = 2
     num_samples: int = 16
     lr_gc: float = 1e-3
@@ -111,21 +112,21 @@ def train(args: Arguments):
         loss.backward()
         optimizer.step()
 
-        if epoch % args.eval_frequency == 0:
+        if (epoch + 1) % args.eval_frequency == 0:
             model.eval()
             with torch.no_grad():
                 out = model(x, adjacency_tensor.to(device))
                 pred = out.argmax(dim=1)
-                train_acc = (pred[data.train_mask] == data.y[data.train_mask]).sum().item() / data.train_mask.sum().item()
-                val_acc = (pred[data.val_mask] == data.y[data.val_mask]).sum().item() / data.val_mask.sum().item()
+                #train_acc = (pred[data.train_mask] == data.y[data.train_mask]).sum().item() / data.train_mask.sum().item()
+                #val_acc = (pred[data.val_mask] == data.y[data.val_mask]).sum().item() / data.val_mask.sum().item()
 
-                #train_pred = pred[data.train_mask].cpu().numpy()
-                #train_targets = data.y[data.train_mask].cpu().numpy()
-                #train_acc = accuracy_score(train_targets, train_pred)
+                train_pred = pred[data.train_mask].cpu().numpy()
+                train_targets = data.y[data.train_mask].cpu().numpy()
+                train_acc = accuracy_score(train_targets, train_pred)
 
-                #val_pred = pred[data.val_mask].cpu().numpy()
-                #val_targets = data.y[data.val_mask].cpu().numpy()
-                #val_acc = accuracy_score(val_targets, val_pred)
+                val_pred = pred[data.val_mask].cpu().numpy()
+                val_targets = data.y[data.val_mask].cpu().numpy()
+                val_acc = accuracy_score(val_targets, val_pred)
 
                 # Calculate validation F1 score
                 val_predictions = pred[data.val_mask].cpu()
@@ -137,6 +138,8 @@ def train(args: Arguments):
                             'train_accuracy': train_acc,
                             'valid_accuracy': val_acc,
                             'valid_f1': val_f1}
+                
+
 
                 wandb.log(log_dict)
 
@@ -259,7 +262,7 @@ def train_minibatch(args: Arguments):
     return test_loss
 
 
-args = Arguments(explicit_bool=True).parse_args()
+#args = Arguments(explicit_bool=True).parse_args()
 
 
 
