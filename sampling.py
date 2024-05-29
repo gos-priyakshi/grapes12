@@ -14,7 +14,7 @@ from eval import evaluate
 from modules.data import get_data
 from modules.gcn import GCN, ResGCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
-                           sample_neighborhoods_from_probs, slice_adjacency)
+                           sample_neighborhoods_from_probs, slice_adjacency_adj)
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -147,7 +147,7 @@ def train(args: Arguments):
                 indicator_features.zero_()
                 indicator_features[target_nodes, -1] = 1.0
 
-                global_edge_indices = []
+                global_adj_list = []
                 log_probs = []
                 sampled_sizes = []
                 neighborhood_sizes = []
@@ -168,9 +168,15 @@ def train(args: Arguments):
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
                     indicator_features[neighbor_nodes, hop] = 1.0
 
-                    # Map neighborhoods to local node IDs
-                    node_map.update(batch_nodes)
-                    local_neighborhoods = node_map.map(neighborhoods).to(device)
+                    # Map neighborhoods to adjacency lists 
+                    local_neighborhoods = []
+                    for node in batch_nodes:
+                        node_neighbors = adjacency[node].nonzero()[1] #Get the neighbours of the node
+                        local_neighborhoods.append(node_neighbors)
+                    # convert to tensor    
+                    local_neighborhoods = [torch.tensor(neighbors) for neighbors in local_neighborhoods]
+
+                    
                     # Select only the needed rows from the feature and
                     # indicator matrices
                     if args.use_indicators:
@@ -182,7 +188,7 @@ def train(args: Arguments):
                         x = data.x[batch_nodes].to(device)
 
                     # Get probabilities for sampling each node
-                    node_logits, _ = gcn_gf(x, local_neighborhoods)
+                    node_logits, _ = gcn_gf(x, local_neighborhoods) # local neighbourhoods : adjacency list
                     # Select logits for neighbor nodes only
                     node_logits = node_logits[node_map.map(neighbor_nodes)]
 
@@ -204,11 +210,10 @@ def train(args: Arguments):
                                              sampled_neighboring_nodes],
                                             dim=0)
 
-                    # Retrieve the edge index that results after sampling
-                    k_hop_edges = slice_adjacency(adjacency,
-                                                  rows=previous_nodes,
-                                                  cols=batch_nodes)
-                    global_edge_indices.append(k_hop_edges)
+                    # Retrieve the adjacency list that results after sampling
+                    k_hop_adj = slice_adjacency_adj(adjacency, batch_nodes, batch_nodes)
+                    global_adj_list.append(k_hop_adj)
+
 
                     # Update the previous_nodes
                     previous_nodes = batch_nodes.clone()

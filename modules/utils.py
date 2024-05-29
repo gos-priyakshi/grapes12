@@ -91,6 +91,18 @@ def slice_adjacency(adjacency: sp.csr_matrix, rows: Tensor, cols: Tensor):
                              dim=0)
     return edge_index
 
+def slice_adjacency_adj(adjacency: sp.csr_matrix, rows: Tensor, cols: Tensor):
+    """Selects a block from a sparse adjacency matrix, given the row and column
+    indices. The result is returned as a single adjacency matrix.
+    """
+    row_slice = adjacency[rows]
+    row_col_slice = row_slice[:, cols]
+    slice = row_col_slice.tocsr()
+
+    adjacency_matrix = slice.todense()
+
+    return adjacency_matrix
+
 
 class TensorMap:
     """A class used to quickly map integers in a tensor to an interval of
