@@ -108,7 +108,7 @@ def train(args: Arguments):
         optimizer.zero_grad()
         x = data.x.to(device)
         out = model(x, adjacency_tensor.to(device))
-        loss = loss_fn(out[data.train_mask], data.y[data.train_mask])
+        loss = loss_fn(out[data.train_mask].to(device), data.y[data.train_mask].to(device))
         loss.backward()
         optimizer.step()
 
