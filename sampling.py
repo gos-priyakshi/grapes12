@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from eval import evaluate
 from modules.data import get_data
-from modules.gcn import GCN, ResGCN
+from modules.gcn123 import GCN, ResGCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency_adj)
 
@@ -93,7 +93,7 @@ def train(args: Arguments):
         gcn_gf = GCN(data.num_features + num_indicators,
                       hidden_dims=[args.hidden_dim, 1]).to(device)
 
-    log_z = torch.tensor(args.log_z_init, requires_grad=True)
+    log_z = torch.tensor(args.log_z_init, requires_grad=True, device=device)
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
     optimizer_gf = Adam(list(gcn_gf.parameters()) + [log_z], lr=args.lr_gf)
 
@@ -102,22 +102,22 @@ def train(args: Arguments):
     else:
         loss_fn = nn.BCEWithLogitsLoss()
 
-    train_idx = data.train_mask.nonzero().squeeze(1)
+    train_idx = data.train_mask.nonzero(as_tuple=True)[0].to(device)
     train_loader = DataLoader(TensorDataset(train_idx), batch_size=args.batch_size)
 
-    val_idx = data.val_mask.nonzero().squeeze(1)
+    val_idx = data.val_mask.nonzero(as_tuple=True)[0].to(device)
     val_loader = DataLoader(TensorDataset(val_idx), batch_size=args.batch_size)
 
-    test_idx = data.test_mask.nonzero().squeeze(1)
+    test_idx = data.test_mask.nonzero(as_tuple=True)[0].to(device)
     test_loader = DataLoader(TensorDataset(test_idx), batch_size=args.batch_size)
 
     adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
                                data.edge_index),
                               shape=(data.num_nodes, data.num_nodes))
 
-    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-    indicator_features = torch.zeros((data.num_nodes, num_indicators))
+    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool, device=device)
+    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool, device=device)
+    indicator_features = torch.zeros((data.num_nodes, num_indicators), device=device)
 
     # This will collect memory allocations for all epochs
     all_mem_allocations_point1 = []

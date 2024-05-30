@@ -12,6 +12,12 @@ class GCNConv(nn.Module):
     def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
         print(f"GCNConv: x shape: {x.shape}, weight shape: {self.weight.shape}")
         support = torch.mm(x, self.weight)
+        
+         # Move adjacency to the same device as x
+        adjacency = adjacency.to(x.device)
+        if not adjacency.is_sparse:
+            adjacency = adjacency.to_sparse()
+
         output = torch.spmm(adjacency, support)
         return output
 
