@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from eval import evaluate
 from modules.data import get_data
-from modules.gcn import GCN, ResGCN
+from modules.gcn123 import GCN, ResGCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency_adj)
 
