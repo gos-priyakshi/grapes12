@@ -72,6 +72,10 @@ def get_neighborhoods(nodes: Tensor,
                       adjacency: sp.csr_matrix
                       ) -> Tensor:
     """Returns the neighbors of a set of nodes from a given adjacency matrix"""
+
+    # Ensure nodes tensor is on the CPU
+    nodes = nodes.cpu()
+    
     neighborhood = adjacency[nodes].tocoo()
     neighborhoods = torch.stack([nodes[neighborhood.row],
                                  torch.tensor(neighborhood.col)],
