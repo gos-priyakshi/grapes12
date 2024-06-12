@@ -10,11 +10,11 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from eval import evaluate
+from evalnew import evaluate
 from modules.data import get_data
 from modules.gcn123 import GCN, ResGCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
-                           sample_neighborhoods_from_probs, slice_adjacency_adj)
+                           sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj, normalize_laplacian)
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -113,7 +113,7 @@ def train(args: Arguments):
 
     adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
                                data.edge_index),
-                              shape=(data.num_nodes, data.num_nodes))
+                              shape=(data.num_nodes, data.num_nodes)) # NOT the normalized adjacency
 
     prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool, device=device)
     batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool, device=device)
@@ -147,7 +147,7 @@ def train(args: Arguments):
                 indicator_features.zero_()
                 indicator_features[target_nodes, -1] = 1.0
 
-                global_adj_list = []
+                global_edge_indices = []
                 log_probs = []
                 sampled_sizes = []
                 neighborhood_sizes = []
@@ -168,15 +168,23 @@ def train(args: Arguments):
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
                     indicator_features[neighbor_nodes, hop] = 1.0
 
-                    # Map neighborhoods to adjacency lists 
-                    local_neighborhoods = []
-                    for node in batch_nodes:
-                        node_neighbors = adjacency[node].nonzero()[1] #Get the neighbours of the node
-                        local_neighborhoods.append(node_neighbors)
-                    # convert to tensor    
-                    local_neighborhoods = [torch.tensor(neighbors) for neighbors in local_neighborhoods]
+                    # Map neighborhoods to local node IDs
+                    node_map.update(batch_nodes)
+                    local_neighborhoods = node_map.map(neighborhoods).to(device)
 
+
+                    # and size
+                    #print(local_neighborhoods.size())
+                    # number of unique nodes in the local neighborhood
+                    print(len(torch.unique(local_neighborhoods)))
                     
+
+                    # convert to adjacency matrix
+                    num_nodes = len(torch.unique(local_neighborhoods))
+                    local_neighborhoods = convert_edge_index_to_adj(local_neighborhoods, num_nodes)    
+                    # convert adjacency to normalized laplacian
+                    # adj = normalize_laplacian(local_neighborhoods)
+
                     # Select only the needed rows from the feature and
                     # indicator matrices
                     if args.use_indicators:
@@ -188,7 +196,7 @@ def train(args: Arguments):
                         x = data.x[batch_nodes].to(device)
 
                     # Get probabilities for sampling each node
-                    node_logits, _ = gcn_gf(x, local_neighborhoods) # local neighbourhoods : adjacency list
+                    node_logits, _ = gcn_gf(x, local_neighborhoods) 
                     # Select logits for neighbor nodes only
                     node_logits = node_logits[node_map.map(neighbor_nodes)]
 
@@ -210,10 +218,12 @@ def train(args: Arguments):
                                              sampled_neighboring_nodes],
                                             dim=0)
 
-                    # Retrieve the adjacency list that results after sampling
-                    k_hop_adj = slice_adjacency_adj(adjacency, batch_nodes, batch_nodes)
-                    global_adj_list.append(k_hop_adj)
 
+                    # Retrieve the edge index that results after sampling
+                    k_hop_edges = slice_adjacency(adjacency,
+                                                  rows=previous_nodes,
+                                                  cols=batch_nodes)
+                    global_edge_indices.append(k_hop_edges)
 
                     # Update the previous_nodes
                     previous_nodes = batch_nodes.clone()
@@ -223,10 +233,15 @@ def train(args: Arguments):
                 # hop concatenated with the target nodes
                 all_nodes = node_map.values[all_nodes_mask]
                 node_map.update(all_nodes)
-                edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+                local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+                # convert to adjacency matrices
+                num_nodes = len(torch.unique(all_nodes))
+                adj_matrices = [convert_edge_index_to_adj(e, num_nodes) for e in local_edge_indices]
+                # convert adjacency to normalized laplacian
+                # adj_matrices = [normalize_laplacian(e) for e in adj_matrices]
 
                 x = data.x[all_nodes].to(device)
-                logits, gcn_mem_alloc = gcn_c(x, edge_indices)
+                logits, gcn_mem_alloc = gcn_c(x, adj_matrices)
 
                 local_target_ids = node_map.map(target_nodes)
                 loss_c = loss_fn(logits[local_target_ids],

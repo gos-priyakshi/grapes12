@@ -100,6 +100,13 @@ def train(args: Arguments):
     # Convert the numpy array to a PyTorch tensor
     adjacency_tensor = torch.from_numpy(adjacency_dense).float().to(device)
 
+    # normalize laplacian
+    adjacency_tensor = adjacency_tensor + torch.eye(adjacency_tensor.size(0)).to(device)
+    degree = adjacency_tensor.sum(dim=1)
+    d_inv_sqrt = torch.pow(degree, -0.5)
+    d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.
+    d_mat_inv_sqrt = torch.diag(d_inv_sqrt)
+    adjacency_tensor = torch.mm(torch.mm(d_mat_inv_sqrt, adjacency_tensor), d_mat_inv_sqrt)
 
     logger.info('Training')
 
@@ -139,6 +146,9 @@ def train(args: Arguments):
                             'valid_accuracy': val_acc,
                             'valid_f1': val_f1}
                 
+                # Log Dirichlet energy values
+                for i, energy in enumerate(model.energy_values):
+                    log_dict[f'dirichlet_energy_layer_{i}'] = energy.item()
 
 
                 wandb.log(log_dict)

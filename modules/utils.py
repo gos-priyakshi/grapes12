@@ -107,6 +107,21 @@ def slice_adjacency_adj(adjacency: sp.csr_matrix, rows: Tensor, cols: Tensor):
 
     return adjacency_matrix
 
+def convert_edge_index_to_adj(edge_index: Tensor, num_nodes: int):
+    """Converts an edge index to an adjacency matrix tensor"""
+    adj = torch.zeros((num_nodes, num_nodes), dtype=torch.float)
+    adj[edge_index[0], edge_index[1]] = 1
+    adj[edge_index[1], edge_index[0]] = 1
+    return adj
+
+def normalize_laplacian(adjacency: Tensor):
+    """Computes the normalized graph Laplacian of adjacency matrix."""
+    rowsum = torch.sum(adjacency, dim=1)
+    d_inv_sqrt = torch.pow(rowsum, -0.5).flatten()
+    d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.
+    d_mat_inv_sqrt = torch.diag(d_inv_sqrt)
+    laplacian = adjacency.mm(d_mat_inv_sqrt).t().mm(d_mat_inv_sqrt)
+    return laplacian
 
 class TensorMap:
     """A class used to quickly map integers in a tensor to an interval of
