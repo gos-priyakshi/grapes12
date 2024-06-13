@@ -87,6 +87,7 @@ def slice_adjacency(adjacency: sp.csr_matrix, rows: Tensor, cols: Tensor):
     """Selects a block from a sparse adjacency matrix, given the row and column
     indices. The result is returned as an edge index.
     """
+    rows = rows.cpu() 
     row_slice = adjacency[rows]
     row_col_slice = row_slice[:, cols]
     slice = row_col_slice.tocoo()
@@ -99,7 +100,7 @@ def slice_adjacency_adj(adjacency: sp.csr_matrix, rows: Tensor, cols: Tensor):
     """Selects a block from a sparse adjacency matrix, given the row and column
     indices. The result is returned as a single adjacency matrix.
     """
-    rows = rows.cpu() 
+    
     row_slice = adjacency[rows]
     row_col_slice = row_slice[:, cols]
     slice = row_col_slice.tocsr()
