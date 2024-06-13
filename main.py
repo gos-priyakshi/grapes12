@@ -164,6 +164,13 @@ def train(args: Arguments):
                     batch_nodes_mask[neighborhoods.view(-1)] = True
                     neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
 
+                    #check if the device is correct
+                    print(batch_nodes_mask.device)
+                    print(neighbor_nodes_mask.device)
+                    print(indicator_features.device)
+                    print(node_map.values.device)
+
+
                     batch_nodes = node_map.values[batch_nodes_mask]
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
                     indicator_features[neighbor_nodes, hop] = 1.0
