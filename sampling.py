@@ -193,7 +193,7 @@ def train(args: Arguments):
                     print(data.x.device)
                     print(indicator_features.device)
 
-                    batch_nodes = batch_nodes.to(data.x.device)
+                    #batch_nodes = batch_nodes.to(data.x.device)
                     indicator_features = indicator_features.to(data.x.device)
 
                     if args.use_indicators:
@@ -226,8 +226,8 @@ def train(args: Arguments):
 
                     print(target_nodes.device)
                     print(sampled_neighboring_nodes.device)
-                    
-                    target_nodes = target_nodes.to(device)
+
+                    target_nodes = target_nodes.to(sampled_neighboring_nodes.device)
                     batch_nodes = torch.cat([target_nodes,
                                              sampled_neighboring_nodes],
                                             dim=0)
