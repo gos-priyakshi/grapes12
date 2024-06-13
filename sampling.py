@@ -189,6 +189,9 @@ def train(args: Arguments):
 
                     # Select only the needed rows from the feature and
                     # indicator matrices
+                    print(batch_nodes.device)
+                    print(data.x.device)
+                    print(indicator_features.device)
 
                     batch_nodes = batch_nodes.to(data.x.device)
                     indicator_features = indicator_features.to(data.x.device)
@@ -220,6 +223,11 @@ def train(args: Arguments):
                     all_statistics.append(statistics)
 
                     # Update batch nodes for next hop
+
+                    print(target_nodes.device)
+                    print(sampled_neighboring_nodes.device)
+                    
+                    target_nodes = target_nodes.to(device)
                     batch_nodes = torch.cat([target_nodes,
                                              sampled_neighboring_nodes],
                                             dim=0)
