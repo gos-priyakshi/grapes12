@@ -157,11 +157,7 @@ def train(args: Arguments):
                     # Get neighborhoods of target nodes in batch
                     neighborhoods = get_neighborhoods(previous_nodes, adjacency)
 
-                    #check if the device is correct
-                    print(batch_nodes_mask.device)
-                    print(neighbor_nodes_mask.device)
-                    print(indicator_features.device)
-                    print(node_map.values.device)
+        
 
                     # Identify batch nodes (nodes + neighbors) and neighbors
                     prev_nodes_mask.zero_()
@@ -169,6 +165,12 @@ def train(args: Arguments):
                     prev_nodes_mask[previous_nodes] = True
                     batch_nodes_mask[neighborhoods.view(-1)] = True
                     neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
+
+                    #check if the device is correct
+                    print(batch_nodes_mask.device)
+                    print(neighbor_nodes_mask.device)
+                    print(indicator_features.device)
+                    print(node_map.values.device)
 
                     
                     batch_nodes_mask = batch_nodes_mask.to(node_map.values.device)
