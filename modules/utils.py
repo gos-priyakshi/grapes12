@@ -134,6 +134,8 @@ def calculate_dirichlet_energy(x : Tensor, adj: Tensor):
     laplacian = laplacian.to(x.device)
     # calculate the Dirichlet energy
     energy = torch.matmul(x.t(), laplacian).matmul(x)
+    # trace 
+    energy = torch.trace(energy)
 
     return energy.item()
 
