@@ -102,13 +102,13 @@ def train(args: Arguments):
     else:
         loss_fn = nn.BCEWithLogitsLoss()
 
-    train_idx = data.train_mask.nonzero(as_tuple=True)[0].to(device)
+    train_idx = data.train_mask.nonzero().squeeze(1)
     train_loader = DataLoader(TensorDataset(train_idx), batch_size=args.batch_size)
 
-    val_idx = data.val_mask.nonzero(as_tuple=True)[0].to(device)
+    val_idx = data.val_mask.nonzero().squeeze(1)
     val_loader = DataLoader(TensorDataset(val_idx), batch_size=args.batch_size)
 
-    test_idx = data.test_mask.nonzero(as_tuple=True)[0].to(device)
+    test_idx = data.test_mask.nonzero().squeeze(1)
     test_loader = DataLoader(TensorDataset(test_idx), batch_size=args.batch_size)
 
     adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
@@ -166,15 +166,13 @@ def train(args: Arguments):
                     neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
 
                     #check if the device is correct
-                    print(batch_nodes_mask.device)
-                    print(neighbor_nodes_mask.device)
-                    print(indicator_features.device)
-                    print(node_map.values.device)
+                    #print(batch_nodes_mask.device)
+                    #print(neighbor_nodes_mask.device)
+                    #print(indicator_features.device)
+                    #print(node_map.values.device)
 
                     
-                    batch_nodes_mask = batch_nodes_mask.to(node_map.values.device)
                     batch_nodes = node_map.values[batch_nodes_mask]
-                    neighbor_nodes_mask = neighbor_nodes_mask.to(node_map.values.device)
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
                     indicator_features[neighbor_nodes, hop] = 1.0
 
@@ -197,12 +195,12 @@ def train(args: Arguments):
 
                     # Select only the needed rows from the feature and
                     # indicator matrices
-                    print(batch_nodes.device)
-                    print(data.x.device)
-                    print(indicator_features.device)
+                    #print(batch_nodes.device)
+                    #print(data.x.device)
+                    #print(indicator_features.device)
 
                     #batch_nodes = batch_nodes.to(data.x.device)
-                    indicator_features = indicator_features.to(data.x.device)
+                    #indicator_features = indicator_features.to(data.x.device)
 
                     if args.use_indicators:
                         x = torch.cat([data.x[batch_nodes],
@@ -232,10 +230,9 @@ def train(args: Arguments):
 
                     # Update batch nodes for next hop
 
-                    print(target_nodes.device)
-                    print(sampled_neighboring_nodes.device)
+                    #print(target_nodes.device)
+                    #print(sampled_neighboring_nodes.device)
 
-                    target_nodes = target_nodes.to(sampled_neighboring_nodes.device)
                     batch_nodes = torch.cat([target_nodes,
                                              sampled_neighboring_nodes],
                                             dim=0)

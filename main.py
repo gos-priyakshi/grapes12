@@ -165,10 +165,10 @@ def train(args: Arguments):
                     neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
 
                     #check if the device is correct
-                    print(batch_nodes_mask.device)
-                    print(neighbor_nodes_mask.device)
-                    print(indicator_features.device)
-                    print(node_map.values.device)
+                    #print(batch_nodes_mask.device)
+                    #print(neighbor_nodes_mask.device)
+                    #print(indicator_features.device)
+                    #print(node_map.values.device)
 
 
                     batch_nodes = node_map.values[batch_nodes_mask]
