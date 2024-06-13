@@ -19,6 +19,8 @@ class GCNConv(nn.Module):
         adjacency = normalize_laplacian(adjacency)
 
          # Move adjacency to the same device as x
+         # check device of x
+        print(f"GCNConv: x device: {x.device}, adjacency device: {adjacency.device}")
         adjacency = adjacency.to(x.device)
         if not adjacency.is_sparse:
             adjacency = adjacency.to_sparse()
