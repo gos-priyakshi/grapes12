@@ -93,7 +93,7 @@ def train(args: Arguments):
         gcn_gf = GCN(data.num_features + num_indicators,
                       hidden_dims=[args.hidden_dim, 1]).to(device)
 
-    log_z = torch.tensor(args.log_z_init, requires_grad=True, device=device)
+    log_z = torch.tensor(args.log_z_init, requires_grad=True)
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
     optimizer_gf = Adam(list(gcn_gf.parameters()) + [log_z], lr=args.lr_gf)
 
@@ -115,9 +115,9 @@ def train(args: Arguments):
                                data.edge_index),
                               shape=(data.num_nodes, data.num_nodes)) # NOT the normalized adjacency
 
-    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool, device=device)
-    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool, device=device)
-    indicator_features = torch.zeros((data.num_nodes, num_indicators), device=device)
+    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+    indicator_features = torch.zeros((data.num_nodes, num_indicators))
 
     # This will collect memory allocations for all epochs
     all_mem_allocations_point1 = []
@@ -157,7 +157,6 @@ def train(args: Arguments):
                     # Get neighborhoods of target nodes in batch
                     neighborhoods = get_neighborhoods(previous_nodes, adjacency)
 
-        
 
                     # Identify batch nodes (nodes + neighbors) and neighbors
                     prev_nodes_mask.zero_()
