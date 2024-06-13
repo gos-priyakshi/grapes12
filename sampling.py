@@ -289,6 +289,9 @@ def train(args: Arguments):
                 batch_loss_gfn = loss_gfn.item()
                 batch_loss_c = loss_c.item()
 
+                print(next(gcn_c.parameters()).device)
+                print(next(gcn_gf.parameters()).device)
+
                 wandb.log({'batch_loss_gfn': batch_loss_gfn,
                            'batch_loss_c': batch_loss_c,
                            'log_z': log_z,
