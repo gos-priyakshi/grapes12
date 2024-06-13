@@ -190,12 +190,12 @@ def train(args: Arguments):
                     # Select only the needed rows from the feature and
                     # indicator matrices
 
-                    #batch_nodes = batch_nodes.to(data.x.device)
-                    #indicator_features = indicator_features.to(data.x.device)
+                    batch_nodes = batch_nodes.to(data.x.device)
+                    indicator_features = indicator_features.to(data.x.device)
 
                     if args.use_indicators:
                         x = torch.cat([data.x[batch_nodes],
-                                       indicator_features[batch_nodes].to(device)],
+                                       indicator_features[batch_nodes]],
                                       dim=1
                                       ).to(device)
                     else:
