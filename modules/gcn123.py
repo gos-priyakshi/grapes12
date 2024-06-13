@@ -63,9 +63,9 @@ class GCN(nn.Module):
         self.calculate_and_store_metrics(logits, adj)
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
-        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+        #memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
         
-        return logits, memory_alloc
+        return logits
     
     def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
         energy = calculate_dirichlet_energy(x, adj)
