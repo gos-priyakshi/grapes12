@@ -318,6 +318,10 @@ def train(args: Arguments):
                         'loss_c': acc_loss_c,
                         'valid_accuracy': accuracy,
                         'valid_f1': f1}
+            
+            # log dirichlet energy values
+            log_dict['dirichlet_energy'] = gcn_c.get_dirichlet_energy()
+            log_dict['mad'] = gcn_c.get_mean_average_distance()
 
             logger.info(f'loss_gfn={acc_loss_gfn:.6f}, '
                         f'loss_c={acc_loss_c:.6f}, '

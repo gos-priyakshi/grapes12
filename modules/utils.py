@@ -123,6 +123,50 @@ def normalize_laplacian(adjacency: Tensor):
     laplacian = adjacency.mm(d_mat_inv_sqrt).t().mm(d_mat_inv_sqrt)
     return laplacian
 
+def calculate_dirichlet_energy(x : Tensor, adj: Tensor):
+    """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
+    # add self-loops
+    adj = adj + torch.eye(adj.size(0), device=adj.device)
+    # calculate the laplacian
+    laplacian = normalize_laplacian(adj)
+    # augmented normalized laplacian 
+    laplacian = torch.eye(adj.size(0), device=adj.device) - laplacian
+    # calculate the Dirichlet energy
+    energy = torch.matmul(x.t(), laplacian).matmul(x)
+
+    return energy.item()
+
+def cosine_similarity(x: Tensor, y: Tensor):
+    """Calculates the cosine similarity between two tensors x and y."""
+    x = x / x.norm(dim=1)[:, None]
+    y = y / y.norm(dim=1)[:, None]
+    return torch.mm(x, y.t())
+
+def mean_average_distance(x: Tensor, adj: Tensor):
+    """calculates the mean average distance of node features x """
+
+    num_nodes = x.size(0)
+    mad = 0.0
+    valid_pairs = 0
+
+    for i in range(num_nodes):
+        # get the neighbors of node i
+        neighbours = adj[i].nonzero(as_tuple=False).flatten()
+        num_neighbours = neighbours.size(0)
+
+        if num_neighbours == 0:
+            continue
+
+        valid_pairs += 1
+
+        for j in neighbours:
+            similarity = torch.cosine_similarity(x[i], x[j], dim=0)
+            mad += 1 - similarity
+
+    mad = mad / valid_pairs if valid_pairs > 0 else 0.0
+    return mad
+
+
 class TensorMap:
     """A class used to quickly map integers in a tensor to an interval of
     integers from 0 to len(tensor) - 1. This is useful for global to local

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from modules.utils import normalize_laplacian
+from modules.utils import (normalize_laplacian, mean_average_distance, calculate_dirichlet_energy)
 
 class GCNConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -32,7 +32,8 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.dropout = dropout
         # self.gcn_layers = nn.ModuleList()
-        self.energy_values = [] # List to store dirichlet energy values
+        self.energy_values = []  # List to store Dirichlet energy values
+        self.mad_values = []  # List to store MAD values
         dims = [in_features] + hidden_dims
         gcn_layers = []
         for i in range(len(dims) - 1):
@@ -42,13 +43,14 @@ class GCN(nn.Module):
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
         self.energy_values = [] # Reset energy values
+        self.mad_values = [] # Reset mean average distance values
         #print(f"GCN: initial x shape: {x.shape}")
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
             x = torch.relu(layer(x, adj))
             #print(f"GCN: after layer {i}, x shape: {x.shape}")
             # Calculate dirichlet energy for each layer
-            self.calculate_energy(x, adj)
+            self.calculate_and_store_metrics(x, adj)
             x = F.dropout(x, p=self.dropout, training=self.training)
             
 
@@ -56,18 +58,27 @@ class GCN(nn.Module):
         logits = self.gcn_layers[-1](x, adj)
         #print(f"GCN: final logits shape: {logits.shape}")
         # Calculate dirichlet energy for the last layer
-        self.calculate_energy(logits, adj)
+        self.calculate_and_store_metrics(logits, adj)
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
         
         return logits, memory_alloc
     
-    def calculate_energy(self, x: torch.Tensor, adjacency: torch.Tensor):
-        # Calculate Dirichlet energy
-        laplacian = torch.spmm(adjacency, x) - x
-        energy = torch.mean(torch.norm(laplacian, dim=1, p=2) ** 2)
+    def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
+        energy = calculate_dirichlet_energy(x, adj)
+        mad = mean_average_distance(x, adj)
         self.energy_values.append(energy)
+        self.mad_values.append(mad)
+
+    def get_dirichlet_energy(self):
+        """Returns the list of Dirichlet energy values at each layer after training."""
+        return self.energy_values
+    
+    def get_mean_average_distance(self):
+        """Returns the list of mean average distance values at each layer after training."""
+        return self.mad_values
+
         
     
 
