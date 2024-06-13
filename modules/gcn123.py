@@ -20,7 +20,7 @@ class GCNConv(nn.Module):
 
          # Move adjacency to the same device as x
          # check device of x
-        print(f"GCNConv: x device: {x.device}, adjacency device: {adjacency.device}")
+        # print(f"GCNConv: x device: {x.device}, adjacency device: {adjacency.device}")
         adjacency = adjacency.to(x.device)
         if not adjacency.is_sparse:
             adjacency = adjacency.to_sparse()
@@ -63,9 +63,9 @@ class GCN(nn.Module):
         self.calculate_and_store_metrics(logits, adj)
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
-        #memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
         
-        return logits
+        return logits, memory_alloc
     
     def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
         energy = calculate_dirichlet_energy(x, adj)
