@@ -131,6 +131,7 @@ def calculate_dirichlet_energy(x : Tensor, adj: Tensor):
     laplacian = normalize_laplacian(adj)
     # augmented normalized laplacian 
     laplacian = torch.eye(adj.size(0), device=adj.device) - laplacian
+    laplacian = laplacian.to(x.device)
     # calculate the Dirichlet energy
     energy = torch.matmul(x.t(), laplacian).matmul(x)
 
