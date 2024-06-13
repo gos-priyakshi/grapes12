@@ -182,7 +182,7 @@ def train(args: Arguments):
                         x = data.x[batch_nodes].to(device)
 
                     # Get probabilities for sampling each node
-                    node_logits, _ = gcn_gf(x, local_neighborhoods)
+                    node_logits, _ = gcn_gf(x, local_neighborhoods) 
                     # Select logits for neighbor nodes only
                     node_logits = node_logits[node_map.map(neighbor_nodes)]
 
