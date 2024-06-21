@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from modules.utils import (normalize_laplacian, mean_average_distance, calculate_dirichlet_energy)
+from modules.utils import (normalize_laplacian_sparse, mean_average_distance, calculate_dirichlet_energy_sparse, add_self_loops)
 
 class GCNConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -14,9 +14,9 @@ class GCNConv(nn.Module):
         #print(f"GCNConv: x shape: {x.shape}, weight shape: {self.weight.shape}")
         support = torch.mm(x, self.weight)
 
-        # add self-loops and normalize the adjacency matrix
-        adjacency = adjacency.to_dense() + torch.eye(adjacency.size(0))
-        adjacency = normalize_laplacian(adjacency)
+        # add self-loops to sparse coo tensor and normalize the adjacency matrix
+        adjacency = add_self_loops(adjacency)
+        adjacency = normalize_laplacian_sparse(adjacency)
 
          # Move adjacency to the same device as x
          # check device of x
@@ -68,7 +68,7 @@ class GCN(nn.Module):
         return logits, memory_alloc
     
     def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
-        energy = calculate_dirichlet_energy(x, adj)
+        energy = calculate_dirichlet_energy_sparse(x, adj)
         mad = mean_average_distance(x, adj)
         self.energy_values.append(energy)
         self.mad_values.append(mad)

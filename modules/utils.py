@@ -109,12 +109,45 @@ def slice_adjacency_adj(adjacency: sp.csr_matrix, rows: Tensor, cols: Tensor):
 
     return adjacency_matrix
 
-def convert_edge_index_to_adj(edge_index: Tensor, num_nodes: int):
+def convert_edge_index_to_adj(edge_index: Tensor, num_nodes: int): ### return a sparse adjacency instead
     """Converts an edge index to an adjacency matrix tensor"""
     adj = torch.zeros((num_nodes, num_nodes), dtype=torch.float)
     adj[edge_index[0], edge_index[1]] = 1
     adj[edge_index[1], edge_index[0]] = 1
     return adj
+
+def convert_edge_index_to_adj_sparse(edge_index: Tensor, num_nodes: int): ### return a sparse adjacency instead
+    """converts an edge index to a sparse adjacency matrix tensor"""
+    # use torch.sparse_coo_tensor
+    values = torch.ones(edge_index.size(1))
+    adj = torch.sparse_coo_tensor(edge_index, values, (num_nodes, num_nodes))
+
+    return adj
+
+def add_self_loops(adjacency):
+    """Add self-loops to a sparse COO adjacency matrix."""
+    
+    num_nodes = adjacency.shape[0]
+
+    # indices for the identity matrix
+    self_loop_indices = torch.arange(num_nodes, device=adjacency.device)
+    self_loop_indices = torch.stack([self_loop_indices, self_loop_indices], dim=0)
+
+    # Values for the identity matrix 
+    self_loop_values = torch.ones(num_nodes, device=adjacency.device)
+
+    # Coalesce the adjacency tensor before getting its indices and values
+    adjacency = adjacency.coalesce()
+
+    # Concatenate self-loops with the original adjacency matrix
+    new_indices = torch.cat([adjacency.indices(), self_loop_indices], dim=1)
+    new_values = torch.cat([adjacency.values(), self_loop_values])
+
+    # Create the new sparse adjacency matrix with self-loops
+    new_adjacency = torch.sparse_coo_tensor(new_indices, new_values, adjacency.size(), device=adjacency.device)
+    new_adjacency = new_adjacency.coalesce() 
+
+    return new_adjacency
 
 def normalize_laplacian(adjacency: Tensor):
     """Computes the normalized graph Laplacian of adjacency matrix."""
@@ -123,6 +156,22 @@ def normalize_laplacian(adjacency: Tensor):
     d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = torch.diag(d_inv_sqrt)
     laplacian = adjacency.mm(d_mat_inv_sqrt).t().mm(d_mat_inv_sqrt)
+    return laplacian
+
+def normalize_laplacian_sparse(adjacency: torch.sparse.FloatTensor):
+    """Computes the normalized graph Laplacian of adjacency matrix."""
+    rowsum = torch.sparse.sum(adjacency, dim=1).to_dense()
+    d_inv_sqrt = torch.pow(rowsum, -0.5).flatten()
+    d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.
+
+    indices = torch.arange(len(d_inv_sqrt), device=adjacency.device)
+    indices = torch.stack([indices, indices], dim=0)
+    d_inv_sqrt_sparse = torch.sparse.FloatTensor(indices, d_inv_sqrt, adjacency.size())
+
+    # compute D^(-1/2) * A * D^(-1/2)
+    d_inv_sqrt_mat = torch.sparse.mm(d_inv_sqrt_sparse, adjacency)
+    laplacian = torch.sparse.mm(d_inv_sqrt_mat, d_inv_sqrt_sparse)
+
     return laplacian
 
 def calculate_dirichlet_energy(x : Tensor, adj: Tensor):
@@ -140,6 +189,30 @@ def calculate_dirichlet_energy(x : Tensor, adj: Tensor):
     energy = torch.trace(energy)
 
     return energy.item()
+
+def calculate_dirichlet_energy_sparse(x : Tensor, adj: torch.sparse.FloatTensor):
+    """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
+    # add self-loops
+    adj = add_self_loops(adj)
+    # calculate the laplacian
+    laplacian = normalize_laplacian_sparse(adj)
+    
+    # Create a sparse identity matrix
+    indices = torch.arange(adj.size(0), device=adj.device)
+    indices = torch.stack([indices, indices], dim=0)
+    values = torch.ones(adj.size(0), device=adj.device)
+    eye_sparse = torch.sparse_coo_tensor(indices, values, (adj.size(0), adj.size(0)))
+
+    # augmented normalized laplacian 
+    laplacian = eye_sparse - laplacian
+    laplacian = laplacian.to(x.device)
+    # calculate the Dirichlet energy
+    energy = torch.sparse.mm(x.t(), laplacian).mm(x)
+    # trace 
+    energy = torch.trace(energy)
+
+    return energy.item()
+
 
 def cosine_similarity(x: Tensor, y: Tensor):
     """Calculates the cosine similarity between two tensors x and y."""

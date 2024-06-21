@@ -9,12 +9,13 @@ from tap import Tap
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+import time
 
 from evalnew import evaluate
 from modules.data import get_data
 from modules.gcn123 import GCN, ResGCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
-                           sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj, normalize_laplacian)
+                           sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse, normalize_laplacian)
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -189,7 +190,12 @@ def train(args: Arguments):
 
                     # convert to adjacency matrix
                     num_nodes = len(torch.unique(local_neighborhoods))
-                    local_neighborhoods = convert_edge_index_to_adj(local_neighborhoods, num_nodes)    
+                    
+                    
+                    start = time.time()
+                    local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes) ## torch coo tensor
+                    print('time', time.time() - start)   
+                    
                     # convert adjacency to normalized laplacian
                     # adj = normalize_laplacian(local_neighborhoods)
 
@@ -255,7 +261,7 @@ def train(args: Arguments):
                 local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
                 # convert to adjacency matrices
                 num_nodes = len(torch.unique(all_nodes))
-                adj_matrices = [convert_edge_index_to_adj(e, num_nodes) for e in local_edge_indices]
+                adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in local_edge_indices]
                 # convert adjacency to normalized laplacian
                 # adj_matrices = [normalize_laplacian(e) for e in adj_matrices]
 
@@ -289,8 +295,8 @@ def train(args: Arguments):
                 batch_loss_gfn = loss_gfn.item()
                 batch_loss_c = loss_c.item()
 
-                print(next(gcn_c.parameters()).device)
-                print(next(gcn_gf.parameters()).device)
+                #print(next(gcn_c.parameters()).device)
+                #print(next(gcn_gf.parameters()).device)
 
                 wandb.log({'batch_loss_gfn': batch_loss_gfn,
                            'batch_loss_c': batch_loss_c,
@@ -342,8 +348,8 @@ def train(args: Arguments):
                         'valid_f1': f1}
             
             # log dirichlet energy values
-            log_dict['dirichlet_energy'] = gcn_c.get_dirichlet_energy()
-            log_dict['mad'] = gcn_c.get_mean_average_distance()
+            #log_dict['dirichlet_energy'] = gcn_c.get_dirichlet_energy()
+            #log_dict['mad'] = gcn_c.get_mean_average_distance()
 
             logger.info(f'loss_gfn={acc_loss_gfn:.6f}, '
                         f'loss_c={acc_loss_c:.6f}, '
