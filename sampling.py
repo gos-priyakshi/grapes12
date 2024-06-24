@@ -185,16 +185,16 @@ def train(args: Arguments):
                     # and size
                     #print(local_neighborhoods.size())
                     # number of unique nodes in the local neighborhood
-                    print(len(torch.unique(local_neighborhoods)))
+                    #print(len(torch.unique(local_neighborhoods)))
                     
 
                     # convert to adjacency matrix
                     num_nodes = len(torch.unique(local_neighborhoods))
                     
                     
-                    start = time.time()
+                    #start = time.time()
                     local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes) ## torch coo tensor
-                    print('time', time.time() - start)   
+                    #print('time', time.time() - start)   
                     
                     # convert adjacency to normalized laplacian
                     # adj = normalize_laplacian(local_neighborhoods)
