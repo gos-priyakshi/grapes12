@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from modules.utils import (normalize_laplacian_sparse, mean_average_distance, calculate_dirichlet_energy_sparse, add_self_loops)
+from modules.utils import (normalize_laplacian_sparse, mean_average_distance_sparse, calculate_dirichlet_energy_sparse, add_self_loops)
 
 class GCNConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -69,7 +69,7 @@ class GCN(nn.Module):
     
     def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
         energy = calculate_dirichlet_energy_sparse(x, adj)
-        mad = mean_average_distance(x, adj)
+        mad = mean_average_distance_sparse(x, adj)
         self.energy_values.append(energy)
         self.mad_values.append(mad)
 

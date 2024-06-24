@@ -225,6 +225,31 @@ def cosine_similarity(x: Tensor, y: Tensor):
     y = y / y.norm(dim=1)[:, None]
     return torch.mm(x, y.t())
 
+def mean_average_distance_sparse(x: Tensor, adj: torch.sparse.FloatTensor):
+    """calculates the mean average distance of node features x """
+
+    num_nodes = x.size(0)
+    mad = 0.0
+    valid_pairs = 0
+
+    for i in range(num_nodes):
+        # get the neighbors of node i
+        neighbours = adj[i].indices()
+        num_neighbours = neighbours.size(0)
+
+        if num_neighbours == 0:
+            continue
+
+        valid_pairs += 1
+
+        for j in neighbours:
+            similarity = torch.cosine_similarity(x[i], x[j], dim=0)
+            mad += 1 - similarity
+
+    mad = mad / valid_pairs if valid_pairs > 0 else 0.0
+    return mad
+
+
 def mean_average_distance(x: Tensor, adj: Tensor):
     """calculates the mean average distance of node features x """
 
