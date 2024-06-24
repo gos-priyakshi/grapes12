@@ -233,6 +233,8 @@ def mean_average_distance_sparse(x: Tensor, adj: torch.sparse.FloatTensor):
     valid_pairs = 0
 
     for i in range(num_nodes):
+        # coalesce the adjacency matrix
+        adj = adj.coalesce()
         # get the neighbors of node i
         neighbours = adj[i].indices()
         num_neighbours = neighbours.size(0)
