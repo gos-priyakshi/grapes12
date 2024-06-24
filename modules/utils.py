@@ -212,8 +212,7 @@ def calculate_dirichlet_energy_sparse(x : Tensor, adj: torch.sparse.FloatTensor)
     laplacian = eye_sparse - laplacian
     laplacian = laplacian.to(x.device)
     # calculate the Dirichlet energy
-    intermediate = torch.sparse.mm(laplacian, x.t())
-    energy = torch.mm(intermediate.t(), x)
+    energy = torch.mm(x.t(), laplacian.to_dense()).mm(x)
     # trace 
     energy = torch.trace(energy)
 
