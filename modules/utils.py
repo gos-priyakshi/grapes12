@@ -120,6 +120,11 @@ def convert_edge_index_to_adj_sparse(edge_index: Tensor, num_nodes: int): ### re
     """converts an edge index to a sparse adjacency matrix tensor"""
     # use torch.sparse_coo_tensor
     values = torch.ones(edge_index.size(1))
+
+    # ensure edge_index and values are on the same device
+    values = values.to(edge_index.device)
+
+    # create the sparse adjacency matrix
     adj = torch.sparse_coo_tensor(edge_index, values, (num_nodes, num_nodes))
 
     return adj
