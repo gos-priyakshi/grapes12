@@ -67,6 +67,13 @@ class GCN(nn.Module):
         
         return logits, memory_alloc
     
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
+        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+
+        energy = calculate_dirichlet_energy_sparse(x, adj)
+        mad = mean_average_distance_sparse(x, adj)
+        return energy, mad
+    
     #def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
      #   energy = calculate_dirichlet_energy_sparse(x, adj)
      #   mad = mean_average_distance_sparse(x, adj)

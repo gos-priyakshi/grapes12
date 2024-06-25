@@ -144,7 +144,7 @@ def train(args: Arguments):
                 previous_nodes = target_nodes.clone()
                 all_nodes_mask = torch.zeros_like(prev_nodes_mask)
                 all_nodes_mask[target_nodes] = True
-
+            
                 indicator_features.zero_()
                 indicator_features[target_nodes, -1] = 1.0
 
@@ -268,6 +268,8 @@ def train(args: Arguments):
                 x = data.x[all_nodes].to(device)
                 logits, gcn_mem_alloc = gcn_c(x, adj_matrices)
 
+                # calculate metrics in the last epo
+
                 local_target_ids = node_map.map(target_nodes)
                 loss_c = loss_fn(logits[local_target_ids],
                                  data.y[target_nodes].to(device)) + args.reg_param*torch.sum(torch.var(logits, dim=1))
@@ -320,6 +322,8 @@ def train(args: Arguments):
 
         bar.close()
 
+        
+
         all_mem_allocations_point1.extend(mem_allocations_point1)
         all_mem_allocations_point2.extend(mem_allocations_point2)
         all_mem_allocations_point3.extend(mem_allocations_point3)
@@ -356,6 +360,13 @@ def train(args: Arguments):
                         f'valid_accuracy={accuracy:.3f}, '
                         f'valid_f1={f1:.3f}')
             wandb.log(log_dict)
+
+    # calculate dirichlet energy and mean average distance
+
+    energy, mad = gcn_c.calculate_metrics(logits, adj_matrices)
+
+    wandb.log({'dirichlet_energy': energy,
+               'mad': mad})
 
     test_accuracy, test_f1 = evaluate(gcn_c,
                                       gcn_gf,

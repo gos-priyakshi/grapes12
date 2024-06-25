@@ -62,11 +62,11 @@ def evaluate(gcn_c: torch.nn.Module,
 
         # convert edge indices to adjacency matrices
         num_nodes = data.num_nodes
-        adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
+        adj_mat = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
         # normalize adjacency matrices
         # adj_matrices = [normalize_laplacian(adj) for adj in adj_matrices]
 
-        logits_total, _ = gcn_c(x, adj_matrices)
+        logits_total, _ = gcn_c(x, adj_mat)
 
         #logits_total, _ = gcn_c(x, edge_index)
         if data.y[mask].dim() == 1:
