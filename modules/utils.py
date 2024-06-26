@@ -179,21 +179,22 @@ def normalize_laplacian_sparse(adjacency: torch.sparse.FloatTensor):
 
     return laplacian
 
-def calculate_dirichlet_energy(x : Tensor, adj: Tensor):
+def calculate_dirichlet_energy(x : Tensor, adj: torch.sparse.FloatTensor):
     """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
-    # add self-loops
-    adj = adj + torch.eye(adj.size(0), device=adj.device)
-    # calculate the laplacian
-    laplacian = normalize_laplacian(adj)
-    # augmented normalized laplacian 
-    laplacian = torch.eye(adj.size(0), device=adj.device) - laplacian
-    laplacian = laplacian.to(x.device)
-    # calculate the Dirichlet energy
-    energy = torch.matmul(x.t(), laplacian).matmul(x)
-    # trace 
-    energy = torch.trace(energy)
+    num_nodes: int = x.shape[0]
+    de: Tensor = 0
 
-    return energy.item()
+    def inner(x_i: Tensor, x_js: Tensor) -> Tensor:
+        return torch.norm(x_i - x_js, ord=2, dim=1).pow(2).sum()
+
+    for node_index in range(num_nodes):
+        own_feat_vector = x[[node_index], :]
+        nbh_indices = torch.nonzero(adj[node_index].to_dense(), as_tuple=True)[0]
+        nbh_feat_matrix = x[nbh_indices, :]
+
+        de += inner(own_feat_vector, nbh_feat_matrix)
+
+    return torch.sqrt(de / num_nodes).item()
 
 def calculate_dirichlet_energy_sparse(x : Tensor, adj: torch.sparse.FloatTensor):
     """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
@@ -209,7 +210,7 @@ def calculate_dirichlet_energy_sparse(x : Tensor, adj: torch.sparse.FloatTensor)
     eye_sparse = torch.sparse_coo_tensor(indices, values, (adj.size(0), adj.size(0)))
 
     # augmented normalized laplacian 
-    laplacian = eye_sparse - laplacian
+    laplacian = laplacian - eye_sparse
     laplacian = laplacian.to(x.device)
     # calculate the Dirichlet energy
     energy = torch.mm(x.t(), laplacian.to_dense()).mm(x)
