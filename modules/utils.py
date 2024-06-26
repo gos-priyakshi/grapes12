@@ -216,7 +216,7 @@ def calculate_dirichlet_energy_sparse(x : Tensor, adj: torch.sparse.FloatTensor)
     eye_sparse = torch.sparse_coo_tensor(indices, values, (adj.size(0), adj.size(0)))
 
     # augmented normalized laplacian 
-    laplacian = laplacian - eye_sparse
+    laplacian = eye_sparse - laplacian
     laplacian = laplacian.to(x.device)
     # calculate the Dirichlet energy
     energy = torch.mm(x.t(), laplacian.to_dense()).mm(x)

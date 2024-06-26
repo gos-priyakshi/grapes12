@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from modules.utils import (normalize_laplacian_sparse, mean_average_distance_sparse, calculate_dirichlet_energy, add_self_loops)
+from modules.utils import (normalize_laplacian_sparse, mean_average_distance_sparse, calculate_dirichlet_energy_sparse, add_self_loops)
 
 class GCNConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -61,7 +61,7 @@ class GCN(nn.Module):
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
 
-        energy = calculate_dirichlet_energy(x, adj)
+        energy = calculate_dirichlet_energy_sparse(x, adj)
         mad = mean_average_distance_sparse(x, adj)
         return energy, mad
     
