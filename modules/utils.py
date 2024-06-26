@@ -202,27 +202,31 @@ def calculate_dirichlet_energy(x : Tensor, adj: torch.sparse.FloatTensor):
 
     return torch.sqrt(de / num_nodes).item()
 
-def calculate_dirichlet_energy_sparse(x : Tensor, adj: torch.sparse.FloatTensor):
+def calculate_dirichlet_energy_sparse(x: torch.Tensor, adj: torch.sparse.FloatTensor) -> float:
     """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
-    # add self-loops
+    # Add self-loops to the adjacency matrix
     adj = add_self_loops(adj)
-    # calculate the laplacian
+    
+    # Calculate the normalized Laplacian
     laplacian = normalize_laplacian_sparse(adj)
     
     # Create a sparse identity matrix
-    indices = torch.arange(adj.size(0), device=adj.device)
+    num_nodes = adj.size(0)
+    indices = torch.arange(num_nodes, device=adj.device)
     indices = torch.stack([indices, indices], dim=0)
-    values = torch.ones(adj.size(0), device=adj.device)
-    eye_sparse = torch.sparse_coo_tensor(indices, values, (adj.size(0), adj.size(0)))
-
-    # augmented normalized laplacian 
-    laplacian = eye_sparse - laplacian
-    laplacian = laplacian.to(x.device)
-    # calculate the Dirichlet energy
-    energy = torch.mm(x.t(), laplacian.to_dense()).mm(x)
-    # trace 
+    values = torch.ones(num_nodes, device=adj.device)
+    identity = torch.sparse_coo_tensor(indices, values, (num_nodes, num_nodes), device=adj.device)
+    
+    # Calculate the augmented normalized Laplacian
+    augmented_laplacian = identity - laplacian
+    
+    # Move the augmented Laplacian to the same device as x
+    augmented_laplacian = augmented_laplacian.to(x.device)
+    
+    # Calculate the Dirichlet energy
+    energy = torch.mm(x.t(), torch.sparse.mm(augmented_laplacian, x))
     energy = torch.trace(energy)
-
+    
     return energy.item()
 
 
