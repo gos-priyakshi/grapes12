@@ -222,6 +222,12 @@ def calculate_dirichlet_energy_sparse(x: torch.Tensor, adj: torch.sparse.FloatTe
     
     # Move the augmented Laplacian to the same device as x
     augmented_laplacian = augmented_laplacian.to(x.device)
+
+    # Print shapes of matrices for debugging
+    print(f"x shape: {x.shape}")
+    print(f"adj shape: {adj.shape}")
+    print(f"laplacian shape: {laplacian.shape}")
+    print(f"augmented_laplacian shape: {augmented_laplacian.shape}")
     
     # Calculate the Dirichlet energy
     energy = torch.mm(x.t(), torch.sparse.mm(augmented_laplacian, x))
