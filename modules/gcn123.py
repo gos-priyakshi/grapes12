@@ -16,16 +16,16 @@ class GCNConv(nn.Module):
 
         # add self-loops to sparse coo tensor and normalize the adjacency matrix
         adjacency = add_self_loops(adjacency)
-        adjacency = normalize_laplacian_sparse(adjacency)
+        laplacian = normalize_laplacian_sparse(adjacency)
 
          # Move adjacency to the same device as x
          # check device of x
         # print(f"GCNConv: x device: {x.device}, adjacency device: {adjacency.device}")
-        adjacency = adjacency.to(x.device)
-        if not adjacency.is_sparse:
-            adjacency = adjacency.to_sparse()
+        laplacian = laplacian.to(x.device)
+        #if not laplacian.is_sparse:
+        #    laplacian = laplacian.to_sparse()
         #print(f"GCNConv: adjacency shape: {adjacency.shape}, support shape: {support.shape}")
-        output = torch.spmm(adjacency, support)
+        output = torch.spmm(laplacian, support)
         return output
 
 
@@ -34,8 +34,6 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.dropout = dropout
         # self.gcn_layers = nn.ModuleList()
-        #self.energy_values = []  # List to store Dirichlet energy values
-        #self.mad_values = []  # List to store MAD values
         dims = [in_features] + hidden_dims
         gcn_layers = []
         for i in range(len(dims) - 1):
@@ -44,23 +42,16 @@ class GCN(nn.Module):
 
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
-        #self.energy_values = [] # Reset energy values
-        #self.mad_values = [] # Reset mean average distance values
         #print(f"GCN: initial x shape: {x.shape}")
-        for i, layer in enumerate(self.gcn_layers[:-1]):
+        for i, layer in enumerate(self.gcn_layers[:-1], start=1):
             adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
             x = torch.relu(layer(x, adj))
             #print(f"GCN: after layer {i}, x shape: {x.shape}")
-            # Calculate dirichlet energy for each layer
-            #self.calculate_and_store_metrics(x, adj)
             x = F.dropout(x, p=self.dropout, training=self.training)
             
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj)
-        #print(f"GCN: final logits shape: {logits.shape}")
-        # Calculate dirichlet energy for the last layer
-        #self.calculate_and_store_metrics(logits, adj)
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)

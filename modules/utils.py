@@ -163,18 +163,24 @@ def normalize_laplacian(adjacency: Tensor):
     laplacian = adjacency.mm(d_mat_inv_sqrt).t().mm(d_mat_inv_sqrt)
     return laplacian
 
-def normalize_laplacian_sparse(adjacency: torch.sparse.FloatTensor):
-    """Computes the normalized graph Laplacian of adjacency matrix."""
+def normalize_laplacian_sparse(adjacency: torch.sparse.FloatTensor) -> torch.sparse.FloatTensor:
+    """Computes the normalized graph Laplacian of a sparse adjacency matrix."""
+    #Compute the sum of rows (degree matrix)
     rowsum = torch.sparse.sum(adjacency, dim=1).to_dense()
+
+    # compute D^-0.5
     d_inv_sqrt = torch.pow(rowsum, -0.5).flatten()
     d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.
 
+    # create a sparse diagonal matrix for D^-0.5
     indices = torch.arange(len(d_inv_sqrt), device=adjacency.device)
     indices = torch.stack([indices, indices], dim=0)
-    d_inv_sqrt_sparse = torch.sparse.FloatTensor(indices, d_inv_sqrt, adjacency.size())
+    d_inv_sqrt_sparse = torch.sparse_coo_tensor(indices, d_inv_sqrt, (len(d_inv_sqrt), len(d_inv_sqrt)))
 
-    # compute D^(-1/2) * A * D^(-1/2)
+    # compute D^-0.5 * A
     d_inv_sqrt_mat = torch.sparse.mm(d_inv_sqrt_sparse, adjacency)
+
+    # compute D^-0.5 * A * D^-0.5
     laplacian = torch.sparse.mm(d_inv_sqrt_mat, d_inv_sqrt_sparse)
 
     return laplacian
