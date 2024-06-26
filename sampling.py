@@ -315,7 +315,7 @@ def train(args: Arguments):
         all_mem_allocations_point3.extend(mem_allocations_point3)
 
         if (epoch + 1) % args.eval_frequency == 0:
-            accuracy, f1 = evaluate(gcn_c,
+            accuracy, f1, _, _ = evaluate(gcn_c,
                                     gcn_gf,
                                     data,
                                     args,
@@ -356,7 +356,7 @@ def train(args: Arguments):
                'dirichlet_energy 2': energy2,
                'mad': mad})
 
-    test_accuracy, test_f1 = evaluate(gcn_c,
+    test_accuracy, test_f1, e1, e2, m = evaluate(gcn_c,
                                       gcn_gf,
                                       data,
                                       args,
@@ -368,8 +368,12 @@ def train(args: Arguments):
                                       args.eval_on_cpu,
                                       loader=test_loader,
                                       full_batch=args.eval_full_batch)
+
     wandb.log({'test_accuracy': test_accuracy,
-               'test_f1': test_f1})
+               'test_f1': test_f1,
+               'de1': e1,
+               'de2': e2,
+               'md': m})
     logger.info(f'test_accuracy={test_accuracy:.3f}, '
                 f'test_f1={test_f1:.3f}')
     return test_f1, all_mem_allocations_point1, all_mem_allocations_point2, all_mem_allocations_point3

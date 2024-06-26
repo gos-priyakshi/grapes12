@@ -68,6 +68,9 @@ def evaluate(gcn_c: torch.nn.Module,
 
         logits_total, _ = gcn_c(x, adj_mat)
 
+        # calculate metrics 
+        e1, e2, m = gcn_c.calculate_metrics(logits_total, adj_mat)
+
         #logits_total, _ = gcn_c(x, edge_index)
         if data.y[mask].dim() == 1:
             predictions = torch.argmax(logits_total, dim=1)[mask].cpu()
@@ -186,4 +189,4 @@ def evaluate(gcn_c: torch.nn.Module,
         accuracy = accuracy_score(targets, all_predictions)
         f1 = f1_score(targets, all_predictions, average='micro')
 
-    return accuracy, f1
+    return accuracy, f1, e1, e2, m
