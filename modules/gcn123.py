@@ -96,8 +96,31 @@ class ResGCN(nn.Module):
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
 
+
+        for i, layer in enumerate(self.gcn_layers[:-1], start=1):
+            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
+            x = torch.relu(layer(x, adj))
+            x = F.dropout(x, p=self.dropout, training=self.training)
+
+        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+        logits = self.gcn_layers[-1](x, adj)
+        logits = F.dropout(logits, p=self.dropout, training=self.training)
+
+        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+        
+        return logits, memory_alloc
+    
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
+
+        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+
+        energy1 = calculate_dirichlet(x, adj)
+        energy2 = calculate_dirichlet_energy(x, adj)
+        mad = mean_average_distance_sparse(x, adj)
+        return energy1, energy2, mad
     
 
+    
 class GATConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, heads: int = 1, dropout: float = 0.0):
         super(GATConv, self).__init__()
