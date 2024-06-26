@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from modules.utils import (normalize_laplacian_sparse, mean_average_distance_sparse, calculate_dirichlet, add_self_loops)
+from modules.utils import (normalize_laplacian_sparse, mean_average_distance_sparse, calculate_dirichlet, calculate_dirichlet_energy, add_self_loops)
 
 class GCNConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -61,9 +61,10 @@ class GCN(nn.Module):
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
 
-        energy = calculate_dirichlet(x, adj)
+        energy1 = calculate_dirichlet(x, adj)
+        energy2 = calculate_dirichlet_energy(x, adj)
         mad = mean_average_distance_sparse(x, adj)
-        return energy, mad
+        return energy1, energy2, mad
     
     #def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
      #   energy = calculate_dirichlet_energy_sparse(x, adj)
@@ -80,31 +81,21 @@ class GCN(nn.Module):
     #    return self.mad_values
 
         
-    
-
 class ResGCN(nn.Module):
     def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0.):
         super(ResGCN, self).__init__()
         self.dropout = dropout
-        self.gcn_layers = nn.ModuleList()
-        self.residual_transforms = nn.ModuleList()
-        for i in range(len(hidden_dims) - 1):
-            self.gcn_layers.append(GCNConv(hidden_dims[i], hidden_dims[i + 1]))
-            if hidden_dims[i] != hidden_dims[i + 1]:
-                self.residual_transforms.append(nn.Linear(hidden_dims[i], hidden_dims[i + 1]))
-            else:
-                self.residual_transforms.append(None)
+        dims = [in_features] + hidden_dims
+        gcn_layers = []
+
+        for i in range(len(hidden_dims)):
+            gcn_layers.append(GCNConv(in_channels=dims[i], out_channels=dims[i + 1]))
+
+        self.gcn_layers = nn.ModuleList(gcn_layers)
+
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
-        for i, (layer, residual_transform) in enumerate(zip(self.gcn_layers, self.residual_transforms)):
-            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
-            x_res = x
-            x = torch.relu(layer(x, adj))
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            if residual_transform is not None:
-                x_res = residual_transform(x_res)
-            x = x + x_res
-        return x
+
     
 
 class GATConv(nn.Module):
