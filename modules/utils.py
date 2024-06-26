@@ -185,7 +185,7 @@ def calculate_dirichlet_energy(x : Tensor, adj: torch.sparse.FloatTensor):
     de: Tensor = 0
 
     def inner(x_i: Tensor, x_js: Tensor) -> Tensor:
-        return torch.norm(x_i - x_js, ord=2, dim=1).pow(2).sum()
+        return torch.linalg.norm(x_i - x_js, ord=2, dim=1).pow(2).sum()
 
     for node_index in range(num_nodes):
         own_feat_vector = x[[node_index], :]
