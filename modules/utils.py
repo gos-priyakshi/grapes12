@@ -202,6 +202,28 @@ def calculate_dirichlet_energy(x : Tensor, adj: torch.sparse.FloatTensor):
 
     return torch.sqrt(de / num_nodes).item()
 
+
+def calculate_dirichlet(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) -> float:
+    num_nodes = X.shape[0]
+    degree = torch.sparse.sum(adjacency, dim=1).to_dense()  # Degree matrix
+    energy = 0.0
+    
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            x_i = X[i]
+            x_j = X[j]
+            d_i = degree[i].item()  # Degree of node i
+            d_j = degree[j].item()  # Degree of node j
+            
+            norm_squared = torch.norm(x_i / torch.sqrt(1 + d_i) - x_j / torch.sqrt(1 + d_j))**2
+            
+            # Contribution to Dirichlet energy
+            energy += norm_squared
+
+    energy/= 2.0
+    
+    return energy.item()
+
 def calculate_dirichlet_energy_sparse(x: torch.Tensor, adj: torch.sparse.FloatTensor) -> float:
     """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
     # Add self-loops to the adjacency matrix
