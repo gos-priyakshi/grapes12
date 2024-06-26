@@ -209,16 +209,18 @@ def calculate_dirichlet(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) ->
     energy = 0.0
     
     for i in range(num_nodes):
-        for j in range(num_nodes):
-            x_i = X[i]
-            x_j = X[j]
-            d_i = degree[i]  # Degree of node i
-            d_j = degree[j]  # Degree of node j
-            
-            norm_squared = torch.norm(x_i / torch.sqrt(1 + d_i) - x_j / torch.sqrt(1 + d_j))**2
-            
-            # Contribution to Dirichlet energy
-            energy += norm_squared
+        nbh_indices = torch.nonzero(adjacency[i].to_dense(), as_tuple=True)[0]
+        for j in nbh_indices:
+            if i != j:  # Exclude self-loops
+                x_i = X[i]
+                x_j = X[j]
+                d_i = degree[i]  # Degree of node i
+                d_j = degree[j]  # Degree of node j
+                
+                norm_squared = torch.norm(x_i / torch.sqrt(1 + d_i) - x_j / torch.sqrt(1 + d_j))**2
+                
+                # Contribution to Dirichlet energy
+                energy += norm_squared
 
     energy/= 2.0
     

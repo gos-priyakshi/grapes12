@@ -348,8 +348,8 @@ def train(args: Arguments):
             wandb.log(log_dict)
 
     # calculate dirichlet energy and mean average distance
-    x = data.x[all_nodes].to(device)
-    logits, _ = gcn_c(x, adj_matrices)
+    #x = data.x[all_nodes].to(device)
+    #logits, _ = gcn_c(x, adj_matrices)
     energy, mad = gcn_c.calculate_metrics(logits, adj_matrices)
 
     wandb.log({'dirichlet_energy': energy,
