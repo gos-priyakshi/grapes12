@@ -16,16 +16,16 @@ class GCNConv(nn.Module):
 
         # add self-loops to sparse coo tensor and normalize the adjacency matrix
         adjacency = add_self_loops(adjacency)
-        laplacian = normalize_laplacian_sparse(adjacency)
+        adjacency = normalize_laplacian_sparse(adjacency)
 
          # Move adjacency to the same device as x
          # check device of x
         # print(f"GCNConv: x device: {x.device}, adjacency device: {adjacency.device}")
-        laplacian = laplacian.to(x.device)
+        adjacency = adjacency.to(x.device)
         #if not laplacian.is_sparse:
         #    laplacian = laplacian.to_sparse()
         #print(f"GCNConv: adjacency shape: {adjacency.shape}, support shape: {support.shape}")
-        output = torch.spmm(laplacian, support)
+        output = torch.sparse.mm(adjacency, support)
         return output
 
 
