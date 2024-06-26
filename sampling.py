@@ -315,7 +315,7 @@ def train(args: Arguments):
         all_mem_allocations_point3.extend(mem_allocations_point3)
 
         if (epoch + 1) % args.eval_frequency == 0:
-            accuracy, f1, _, _ = evaluate(gcn_c,
+            accuracy, f1, _, _, _ = evaluate(gcn_c,
                                     gcn_gf,
                                     data,
                                     args,
