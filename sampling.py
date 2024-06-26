@@ -158,7 +158,6 @@ def train(args: Arguments):
                     # Get neighborhoods of target nodes in batch
                     neighborhoods = get_neighborhoods(previous_nodes, adjacency)
 
-
                     # Identify batch nodes (nodes + neighbors) and neighbors
                     prev_nodes_mask.zero_()
                     batch_nodes_mask.zero_()
@@ -186,7 +185,6 @@ def train(args: Arguments):
                     #print(local_neighborhoods.size())
                     # number of unique nodes in the local neighborhood
                     #print(len(torch.unique(local_neighborhoods)))
-                    
 
                     # convert to adjacency matrix
                     num_nodes = len(torch.unique(local_neighborhoods))
@@ -195,18 +193,6 @@ def train(args: Arguments):
                     #start = time.time()
                     local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes) ## torch coo tensor
                     #print('time', time.time() - start)   
-                    
-                    # convert adjacency to normalized laplacian
-                    # adj = normalize_laplacian(local_neighborhoods)
-
-                    # Select only the needed rows from the feature and
-                    # indicator matrices
-                    #print(batch_nodes.device)
-                    #print(data.x.device)
-                    #print(indicator_features.device)
-
-                    #batch_nodes = batch_nodes.to(data.x.device)
-                    #indicator_features = indicator_features.to(data.x.device)
 
                     if args.use_indicators:
                         x = torch.cat([data.x[batch_nodes],

@@ -16,4 +16,4 @@
 --sampling_hops 2
 --use_indicators true
 --dropout 0.0
---runs 10
+--runs 1
