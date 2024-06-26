@@ -212,8 +212,8 @@ def calculate_dirichlet(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) ->
         for j in range(num_nodes):
             x_i = X[i]
             x_j = X[j]
-            d_i = degree[i].item()  # Degree of node i
-            d_j = degree[j].item()  # Degree of node j
+            d_i = degree[i]  # Degree of node i
+            d_j = degree[j]  # Degree of node j
             
             norm_squared = torch.norm(x_i / torch.sqrt(1 + d_i) - x_j / torch.sqrt(1 + d_j))**2
             
