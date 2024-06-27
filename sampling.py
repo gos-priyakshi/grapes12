@@ -91,7 +91,9 @@ def train(args: Arguments):
     if args.model_type == 'gcn':
         gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
                                                     args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
-                                                    args.hidden_dim, num_classes], dropout=args.dropout).to(device)
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, num_classes], dropout=args.dropout).to(device)
         # GCN model for GFlotNet sampling
         gcn_gf = GCN(data.num_features + num_indicators,
                       hidden_dims=[args.hidden_dim, 1]).to(device)
