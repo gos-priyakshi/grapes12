@@ -73,7 +73,12 @@ def train(args: Arguments):
                                                     args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
                                                     args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, 
                                                     args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
-                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, num_classes], dropout=args.dropout).to(device)
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, 
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, 
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
+                                                    args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim,
+                                                    num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
