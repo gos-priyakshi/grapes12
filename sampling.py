@@ -389,9 +389,28 @@ def train(args: Arguments):
 
             node_map.update(batch_nodes)
             local_neighborhoods = node_map.map(neighborhoods).to(device)
+
             num_nodes = len(torch.unique(local_neighborhoods))
             local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes)
 
+            if args.use_indicators:
+                x = torch.cat([data.x[batch_nodes],
+                               indicator_features[batch_nodes]],
+                              dim=1
+                              ).to(device)
+            else:
+                x = data.x[batch_nodes].to(device)
+
+            node_logits, _ = gcn_gf(x, local_neighborhoods)
+            node_logits = node_logits[node_map.map(neighbor_nodes)]
+
+            sampled_neighboring_nodes, _, _ = sample_neighborhoods_from_probs(
+                node_logits,
+                neighbor_nodes,
+                args.num_samples
+            )
+
+            all_nodes_mask[sampled_neighboring_nodes] = True
             batch_nodes = torch.cat([target_nodes, sampled_neighboring_nodes], dim=0)
             k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
             global_edge_indices.append(k_hop_edges)
