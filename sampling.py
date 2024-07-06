@@ -43,6 +43,7 @@ class Arguments(Tap):
     max_epochs: int = 30
     batch_size: int = 512
     eval_frequency: int = 1
+    num_eval_batches: int = 10
     eval_on_cpu: bool = True 
     eval_full_batch: bool = True
    
@@ -352,11 +353,74 @@ def train(args: Arguments):
     # calculate dirichlet energy and mean average distance
     #x = data.x[all_nodes].to(device)
     #logits, _ = gcn_c(x, adj_matrices)
-    energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj_matrices)
+    #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj_matrices)
 
-    wandb.log({'dirichlet_energy 1': energy1,
-               'dirichlet_energy 2': energy2,
-               'mad': mad})
+    #wandb.log({'dirichlet_energy 1': energy1,
+    #           'dirichlet_energy 2': energy2,
+    #           'mad': mad})
+
+    # Calculate metrics on a few training batches after all epochs are done
+    dirichlet_energies = []
+    mads = []
+
+    for i, batch in enumerate(train_loader):
+        if i >= args.num_eval_batches:
+            break
+
+        target_nodes = batch[0]
+        previous_nodes = target_nodes.clone()
+        all_nodes_mask = torch.zeros_like(prev_nodes_mask)
+        all_nodes_mask[target_nodes] = True
+
+        indicator_features.zero_()
+        indicator_features[target_nodes, -1] = 1.0
+
+        global_edge_indices = []
+
+        for hop in range(args.sampling_hops):
+            neighborhoods = get_neighborhoods(previous_nodes, adjacency)
+            prev_nodes_mask.zero_()
+            batch_nodes_mask.zero_()
+            prev_nodes_mask[previous_nodes] = True
+            batch_nodes_mask[neighborhoods.view(-1)] = True
+            neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
+
+            batch_nodes = node_map.values[batch_nodes_mask]
+            neighbor_nodes = node_map.values[neighbor_nodes_mask]
+            indicator_features[neighbor_nodes, hop] = 1.0
+
+            node_map.update(batch_nodes)
+            local_neighborhoods = node_map.map(neighborhoods).to(device)
+            num_nodes = len(torch.unique(local_neighborhoods))
+            local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes)
+
+            batch_nodes = torch.cat([target_nodes, sampled_neighboring_nodes], dim=0)
+            k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
+            global_edge_indices.append(k_hop_edges)
+
+            previous_nodes = batch_nodes.clone()
+
+        all_nodes = node_map.values[all_nodes_mask]
+        node_map.update(all_nodes)
+        local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+        num_nodes = len(torch.unique(all_nodes))
+        adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in local_edge_indices]
+
+        x = data.x[all_nodes].to(device)
+        logits, _ = gcn_c(x, adj_matrices)
+
+        energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj_matrices)
+        dirichlet_energies.append((energy1, energy2))
+        mads.append(mad)
+
+    avg_energy1 = sum(e[0] for e in dirichlet_energies) / len(dirichlet_energies)
+    avg_energy2 = sum(e[1] for e in dirichlet_energies) / len(dirichlet_energies)
+    avg_mad = sum(mads) / len(mads)
+
+    wandb.log({'avg_dirichlet_energy_1': avg_energy1,
+               'avg_dirichlet_energy_2': avg_energy2,
+               'avg_mad': avg_mad})
+
 
     test_accuracy, test_f1, e1, e2, m = evaluate(gcn_c,
                                       gcn_gf,

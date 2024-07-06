@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
 from modules.utils import (normalize_laplacian_sparse, mean_average_distance_sparse, calculate_dirichlet, calculate_dirichlet_energy, add_self_loops)
+from torch_geometric.nn import GATConv, GATv2Conv
 
 class GCNConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -96,10 +97,13 @@ class ResGCN(nn.Module):
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
 
-
         for i, layer in enumerate(self.gcn_layers[:-1], start=1):
             adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
-            x = torch.relu(layer(x, adj))
+            x_new = torch.relu(layer(x, adj))
+            
+            # residual connection
+            x = x + x_new
+
             x = F.dropout(x, p=self.dropout, training=self.training)
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
@@ -107,76 +111,158 @@ class ResGCN(nn.Module):
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
-        
+
         return logits, memory_alloc
     
-    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
 
-        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
 
-        energy1 = calculate_dirichlet(x, adj)
-        energy2 = calculate_dirichlet_energy(x, adj)
-        mad = mean_average_distance_sparse(x, adj)
-        return energy1, energy2, mad
-    
-
-    
-class GATConv(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, heads: int = 1, dropout: float = 0.0):
-        super(GATConv, self).__init__()
-        self.heads = heads
+class GCNConvII(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, residual=False, variant=False):
+        super(GCNConvII, self).__init__()
+        self.variant = variant
+        self.in_channels = in_channels * 2 if variant else in_channels
         self.out_channels = out_channels
-        self.weight = nn.Parameter(torch.Tensor(in_channels, heads * out_channels))
-        self.attention = nn.Parameter(torch.Tensor(1, heads, 2 * out_channels))
-        nn.init.xavier_uniform_(self.weight)
-        nn.init.xavier_uniform_(self.attention)
-        self.leakyrelu = nn.LeakyReLU(0.2)
-        self.dropout = dropout
+        self.residual = residual
+        self.weight = nn.Parameter(torch.Tensor(self.in_channels, self.out_channels))
+        self.reset_parameters()
 
-    def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
-        H, C = self.heads, self.out_channels
-        support = torch.mm(x, self.weight).view(-1, H, C)
-        indices = adjacency._indices()
-        N = x.size(0)
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.out_channels)
+        self.weight.data.uniform_(-stdv, stdv)
 
-        edge_h = torch.cat((support[indices[0, :], :, :], support[indices[1, :], :, :]), dim=-1)
-        edge_e = torch.exp(self.leakyrelu((edge_h * self.attention).sum(dim=-1, keepdim=True)))
-
-        e_rowsum = torch.sparse.sum(adjacency, dim=1).to_dense().view(-1, 1, H)
-        edge_e /= e_rowsum[indices[0, :], :, :]
-
-        edge_e = torch.sparse_coo_tensor(indices, edge_e.squeeze(-1), torch.Size([N, N, H]))
-        edge_e = edge_e.to_dense()
-
-        support = support * edge_e.unsqueeze(-1)
-        output = support.sum(dim=1)
-
-        if self.dropout:
-            output = F.dropout(output, p=self.dropout, training=self.training)
-
+    def forward(self, input, adj, h0, lamda, alpha, l):
+        theta = math.log(lamda / (l + 1) + 1)
+        hi = torch.sparse.mm(adj, input)
+        if self.variant:
+            support = torch.cat([hi, h0], dim=1)
+        else:
+            support = (1 - alpha) * hi + alpha * h0
+        output = theta * torch.mm(support, self.weight) + (1 - theta) * support
+        if self.residual:
+            output += input
         return output
+    
+
+class GCNII(nn.Module):
+    def __init__(self, in_features: int, hidden_dims: List[int], nclass: int, dropout: float = 0.5, lamda: float = 0.5, alpha: float = 0.1, variant: bool = False):
+        super(GCNII, self).__init__()
+        self.dropout = dropout
+        self.lamda = lamda
+        self.alpha = alpha
+        self.variant = variant
+        
+        dims = [in_features] + hidden_dims + [nclass]
+        self.gcn_layers = nn.ModuleList()
+        
+        for i in range(len(dims) - 2):
+            self.gcn_layers.append(GCNConvII(dims[i], dims[i + 1], residual=True, variant=variant))
+        
+        self.fc_in = nn.Linear(in_features, hidden_dims[0])
+        self.fc_out = nn.Linear(hidden_dims[-1], nclass)
+        self.act_fn = nn.ReLU()
+
+    def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
+        # Initial linear transformation
+        x = F.dropout(x, self.dropout, training=self.training)
+        h0 = self.act_fn(self.fc_in(x))
+        
+        # Store the initial transformed features
+        _layers = [h0]
+        layer_inner = h0
+        
+        for i, layer in enumerate(self.gcn_layers):
+            adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
+            layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
+            layer_inner = self.act_fn(layer(layer_inner, adj, _layers[0], self.lamda, self.alpha, i + 1))
+        
+        # Apply dropout and the final linear transformation
+        layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
+        logits = self.fc_out(layer_inner)
+        
+        return F.log_softmax(logits, dim=1)
 
 
 class GAT(nn.Module):
-    def __init__(self, in_features: int, hidden_dims: list[int], heads: list[int], dropout: float = 0.0):
+    def __init__(self,
+                 in_features: int,
+                 hidden_dims: list[int]):
         super(GAT, self).__init__()
-        self.gat_layers = nn.ModuleList()
-        self.dropout = dropout
+
         dims = [in_features] + hidden_dims
-        for i in range(len(dims) - 1):
-            self.gat_layers.append(GATConv(dims[i], dims[i + 1], heads[i], dropout))
+        gat_layers = []
+        for i in range(len(hidden_dims) - 1):
+            gat_layers.append(GATConv(in_channels=dims[i],
+                                      out_channels=dims[i + 1]))
 
-    def forward(self, x: torch.Tensor, adjacencies: list[torch.Tensor]) -> torch.Tensor:
-        for i, (layer, adj) in enumerate(zip(self.gat_layers, adjacencies)):
-            x = F.relu(layer(x, adj))
-            if self.dropout:
-                x = F.dropout(x, p=self.dropout, training=self.training)
-        return x
+        gat_layers.append(GATConv(in_channels=dims[-2], out_channels=dims[-1]))
+        self.gat_layers = nn.ModuleList(gat_layers)
 
+    def forward(self,
+                x: torch.Tensor,
+                edge_index: Union[torch.Tensor, list[torch.Tensor]],
+                ) -> torch.Tensor:
+        layerwise_adjacency = type(edge_index) == list
 
-# simple attention in graph neural network
+        for i, layer in enumerate(self.gat_layers[:-1], start=1):
+            edges = edge_index[-i] if layerwise_adjacency else edge_index
+            x = torch.relu(layer(x, edges))
 
+        edges = edge_index[0] if layerwise_adjacency else edge_index
+        logits = self.gat_layers[-1](x, edges)
 
+        # memory
+        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+
+        return logits, memory_alloc
+
+# GATv2
+
+class GATv2(nn.Module):
+    def __init__(self,
+                 in_features: int,
+                 hidden_dims: List[int],
+                 heads: int = 1,
+                 dropout: float = 0.6):
+        super(GATv2, self).__init__()
+
+        dims = [in_features] + hidden_dims
+        gatv2_layers = []
+        for i in range(len(hidden_dims) - 1):
+            gatv2_layers.append(GATv2Conv(in_channels=dims[i],
+                                          out_channels=dims[i + 1] // heads,
+                                          heads=heads,
+                                          dropout=dropout,
+                                          concat=True))
+
+        gatv2_layers.append(GATv2Conv(in_channels=dims[-2],
+                                      out_channels=dims[-1],
+                                      heads=heads,
+                                      dropout=dropout,
+                                      concat=False))
+        self.gatv2_layers = nn.ModuleList(gatv2_layers)
+        self.dropout = dropout
+
+    def forward(self,
+                x: torch.Tensor,
+                edge_index: Union[torch.Tensor, List[torch.Tensor]],
+                ) -> torch.Tensor:
+        layerwise_adjacency = isinstance(edge_index, list)
+
+        for i, layer in enumerate(self.gatv2_layers[:-1], start=1):
+            edges = edge_index[-i] if layerwise_adjacency else edge_index
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            x = F.elu(layer(x, edges))
+
+        edges = edge_index[0] if layerwise_adjacency else edge_index
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        logits = self.gatv2_layers[-1](x, edges)
+
+        # memory
+        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+
+        return logits, memory_alloc
+    
+    
 # graphSAGE implementation
 
 class GraphSAGELayer(nn.Module):
