@@ -43,15 +43,12 @@ class GCN(nn.Module):
 
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
-        #print(f"GCN: initial x shape: {x.shape}")
-        for i, layer in enumerate(self.gcn_layers[:-1], start=1):
-            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
+        for layer in self.gcn_layers[:-1]:
+            adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
             x = torch.relu(layer(x, adj))
-            #print(f"GCN: after layer {i}, x shape: {x.shape}")
             x = F.dropout(x, p=self.dropout, training=self.training)
-            
 
-        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
         logits = self.gcn_layers[-1](x, adj)
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
@@ -59,9 +56,23 @@ class GCN(nn.Module):
         
         return logits, memory_alloc
     
-    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
-        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+    def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
+        intermediate_outputs = []
+        for i, layer in enumerate(self.gcn_layers[:-1]):
+            adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+            x = torch.relu(layer(x, adj))
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            if 2**(i+1) in [2, 4, 8, 16, 32, 64, 128]:
+                intermediate_outputs.append(x.clone())
 
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+        logits = self.gcn_layers[-1](x, adj)
+        logits = F.dropout(logits, p=self.dropout, training=self.training)
+        intermediate_outputs.append(logits)
+        return intermediate_outputs
+    
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
         energy1 = calculate_dirichlet(x, adj)
         energy2 = calculate_dirichlet_energy(x, adj)
         mad = mean_average_distance_sparse(x, adj)

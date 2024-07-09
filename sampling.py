@@ -10,6 +10,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 import time
+import random
 
 from evalnew import evaluate
 from modules.data import get_data
@@ -90,7 +91,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim, num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
         # GCN model for GFlotNet sampling
         gcn_gf = GCN(data.num_features + num_indicators,
                       hidden_dims=[args.hidden_dim, 1]).to(device)
@@ -358,13 +359,22 @@ def train(args: Arguments):
     #           'mad': mad})
 
     # Calculate metrics on a few training batches after all epochs are done
+    
+    
+    
+    dirichlet_energies = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], 128: []}
+    mads = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], 128: []}
+
+    # Randomly sample a few batches from the train_loader for evaluation
+    sampled_batches = random.sample(train_loader.dataset, k=min(5, len(train_loader)))
+
+    
+    
+    
     dirichlet_energies = []
     mads = []
 
-    for i, batch in enumerate(train_loader):
-        if i >= args.num_eval_batches:
-            break
-
+    for batch in sampled_batches:
         target_nodes = batch[0]
         previous_nodes = target_nodes.clone()
         all_nodes_mask = torch.zeros_like(prev_nodes_mask)
@@ -377,6 +387,7 @@ def train(args: Arguments):
 
         for hop in range(args.sampling_hops):
             neighborhoods = get_neighborhoods(previous_nodes, adjacency)
+
             prev_nodes_mask.zero_()
             batch_nodes_mask.zero_()
             prev_nodes_mask[previous_nodes] = True
@@ -390,9 +401,6 @@ def train(args: Arguments):
             node_map.update(batch_nodes)
             local_neighborhoods = node_map.map(neighborhoods).to(device)
 
-            num_nodes = len(torch.unique(local_neighborhoods))
-            local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes)
-
             if args.use_indicators:
                 x = torch.cat([data.x[batch_nodes],
                                indicator_features[batch_nodes]],
@@ -404,7 +412,7 @@ def train(args: Arguments):
             node_logits, _ = gcn_gf(x, local_neighborhoods)
             node_logits = node_logits[node_map.map(neighbor_nodes)]
 
-            sampled_neighboring_nodes, _, _ = sample_neighborhoods_from_probs(
+            sampled_neighboring_nodes, log_prob, statistics = sample_neighborhoods_from_probs(
                 node_logits,
                 neighbor_nodes,
                 args.num_samples
@@ -424,20 +432,26 @@ def train(args: Arguments):
         adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in local_edge_indices]
 
         x = data.x[all_nodes].to(device)
-        logits, _ = gcn_c(x, adj_matrices)
+        intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj_matrices)
 
-        energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj_matrices)
-        dirichlet_energies.append((energy1, energy2))
-        mads.append(mad)
+        for layer_num, intermediate_output in zip([2, 4, 8, 16, 32, 64, 128], intermediate_outputs):
+            energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj_matrices)
+            dirichlet_energies[layer_num].append((energy1, energy2))
+            mads[layer_num].append(mad)
 
-    avg_energy1 = sum(e[0] for e in dirichlet_energies) / len(dirichlet_energies)
-    avg_energy2 = sum(e[1] for e in dirichlet_energies) / len(dirichlet_energies)
-    avg_mad = sum(mads) / len(mads)
+    for layer_num in [2, 4, 8, 16, 32, 64, 128]:
+        avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
 
-    wandb.log({'avg_dirichlet_energy_1': avg_energy1,
-               'avg_dirichlet_energy_2': avg_energy2,
-               'avg_mad': avg_mad})
-
+        wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
+                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2,
+                   f'avg_mad_{layer_num}': avg_mad})
+        
+        logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
+                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, '
+                    f'Final MAD at layer {layer_num}: {avg_mad:.6f}')
+    
 
     test_accuracy, test_f1, e1, e2, m = evaluate(gcn_c,
                                       gcn_gf,
