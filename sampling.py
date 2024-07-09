@@ -397,7 +397,11 @@ def train(args: Arguments):
             indicator_features[neighbor_nodes, hop] = 1.0
 
             node_map.update(batch_nodes)
-            local_neighborhoods = node_map.map(neighborhoods).to(device)
+            local_neighborhood = node_map.map(neighborhoods).to(device)
+
+            # convert to adjacency matrix
+            num_nodes = len(torch.unique(local_neighborhood))
+            local_neighborhood = convert_edge_index_to_adj_sparse(local_neighborhood, num_nodes)
 
             if args.use_indicators:
                 x = torch.cat([data.x[batch_nodes],
@@ -407,7 +411,7 @@ def train(args: Arguments):
             else:
                 x = data.x[batch_nodes].to(device)
 
-            node_logits, _ = gcn_gf(x, local_neighborhoods)
+            node_logits, _ = gcn_gf(x, local_neighborhood)
             node_logits = node_logits[node_map.map(neighbor_nodes)]
 
             sampled_neighboring_nodes, log_prob, statistics = sample_neighborhoods_from_probs(
