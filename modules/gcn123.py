@@ -43,7 +43,7 @@ class GCN(nn.Module):
 
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
-        for i, layer in self.gcn_layers[:-1]:
+        for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
             x = torch.relu(layer(x, adj))
             x = F.dropout(x, p=self.dropout, training=self.training)
