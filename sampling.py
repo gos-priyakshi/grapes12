@@ -364,17 +364,15 @@ def train(args: Arguments):
     
     dirichlet_energies = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], 128: []}
     mads = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], 128: []}
-
-    # Randomly sample a few batches from the train_loader for evaluation
-    sampled_indices = random.sample(range(len(train_loader.dataset)), k=min(5, len(train_loader.dataset)))
-
-    sampled_batches = [train_loader.dataset[i] for i in sampled_indices]
-    
     
     dirichlet_energies = []
     mads = []
 
-    for batch in sampled_batches:
+    for batch_idx, batch in enumerate(train_loader):
+
+        if batch_idx >= 5:
+            break
+
         target_nodes = batch[0]
         previous_nodes = target_nodes.clone()
         all_nodes_mask = torch.zeros_like(prev_nodes_mask)
