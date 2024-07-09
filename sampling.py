@@ -366,9 +366,9 @@ def train(args: Arguments):
     mads = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], 128: []}
 
     # Randomly sample a few batches from the train_loader for evaluation
-    sampled_batches = random.sample(train_loader.dataset, k=min(5, len(train_loader)))
+    sampled_indices = random.sample(range(len(train_loader.dataset)), k=min(5, len(train_loader.dataset)))
 
-    
+    sampled_batches = [train_loader.dataset[i] for i in sampled_indices]
     
     
     dirichlet_energies = []
