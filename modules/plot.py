@@ -2,11 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Sample data
-x_values = ['2', '4', '8', '16', '32', '64', '128']
-y_values = [449, 58, 13, 4, 1.3, 0.4, 0.1]
+x_values = ['2', '4', '8', '16', '32', '64', '-1']
+y_values = [0.23, 0.109, 0.018, 0.001, 0.000012, 0.0000000022, 0.0000000008]
 
 # apply log scale to y_values and x values
-#y_values = np.log2(y_values)
+y_values = np.log2(y_values)
 
 # Plotting the curve and save it
 plt.plot(x_values, y_values, marker='o')  # 'marker' is optional, it adds circles at each point
