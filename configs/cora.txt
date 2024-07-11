@@ -9,7 +9,7 @@
 --loss_coef 15714.856673759334
 --lr_gc 0.0003545372838526398
 --lr_gf 0.0005704162398491511
---max_epochs 30
+--max_epochs 50
 --model_type "gcn"
 --num_samples 64
 --reg_param 0.0

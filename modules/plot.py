@@ -3,7 +3,7 @@ import numpy as np
 
 # Sample data
 x_values = ['2', '4', '8', '16', '32', '64', '128']
-y_values = [80, 70, 25, 11, 6.8, 3, 1.4]
+y_values = [449, 58, 13, 4, 1.3, 0.4, 0.1]
 
 # apply log scale to y_values and x values
 #y_values = np.log2(y_values)
