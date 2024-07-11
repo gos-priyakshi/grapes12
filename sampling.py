@@ -365,9 +365,6 @@ def train(args: Arguments):
     dirichlet_energies = {2: [], 4: [], 8: []}
     mads = {2: [], 4: [], 8: []}
     
-    dirichlet_energies = []
-    mads = []
-
     for batch_idx, batch in enumerate(train_loader):
 
         if batch_idx >= 5:
