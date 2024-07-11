@@ -69,7 +69,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim, num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
@@ -129,14 +129,37 @@ def train(args: Arguments):
                         f'valid_f1={f1:.3f}')
             wandb.log(log_dict)
 
+    # Compute Dirichlet energies and MAD for specified layers at the end of training
+    layer_nums = [2, 4, 8, 16, 32, 64, 128]
+    dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
+    mads = {layer_num: [] for layer_num in layer_nums}
+
     x = data.x.to(device)
+    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj.to(device))
+    for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
+        energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj)
+        dirichlet_energies[layer_num].append((energy1, energy2))
+        mads[layer_num].append(mad)
+
+    for layer_num in layer_nums:
+        avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
+        wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
+                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2,
+                   f'avg_mad_{layer_num}': avg_mad})
+        logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
+                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, '
+                    f'Final MAD at layer {layer_num}: {avg_mad:.6f}')
+
+    #x = data.x.to(device)
     logits, gcn_mem_alloc = gcn_c(x, adj.to(device))
     test_predictions = torch.argmax(logits, dim=1)[data.test_mask].cpu()
     targets = data.y[data.test_mask]
     test_accuracy = accuracy_score(targets, test_predictions)
     test_f1 = f1_score(targets, test_predictions, average='micro')
 
-    energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj) 
+    #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj) 
 
     wandb.log({'test_accuracy': test_accuracy,
                'test_f1': test_f1,
