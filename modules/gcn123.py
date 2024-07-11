@@ -58,16 +58,21 @@ class GCN(nn.Module):
     
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
         intermediate_outputs = []
+
+        target_layers = [2, 4, 8, 16, 32]
+        
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
             x = torch.relu(layer(x, adj))
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            if 2**(i+1) in [2, 4, 8, 16, 32, 64, 128]:
-                intermediate_outputs.append(x.clone())
+            x = F.dropout(x, p=self.dropout)
+            
+            # store if current layer is in target_layers
+            if i + 1 in target_layers:
+                intermediate_outputs.append(x)
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj)
-        logits = F.dropout(logits, p=self.dropout, training=self.training)
+        logits = F.dropout(logits, p=self.dropout)
         intermediate_outputs.append(logits)
         return intermediate_outputs
     
