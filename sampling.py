@@ -91,7 +91,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 32 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 64 + [num_classes], dropout=args.dropout).to(device)
         # GCN model for GFlotNet sampling
         gcn_gf = GCN(data.num_features + num_indicators,
                       hidden_dims=[args.hidden_dim, 1]).to(device)
@@ -362,8 +362,8 @@ def train(args: Arguments):
     
     
     
-    dirichlet_energies = {2: [], 4: [], 8: [], 16: [], 32: []}
-    mads = {2: [], 4: [], 8: [], 16: [], 32: []}
+    dirichlet_energies = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], -1: []}
+    mads = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], -1: []}
     
     for batch_idx, batch in enumerate(train_loader):
 
@@ -432,13 +432,16 @@ def train(args: Arguments):
 
         x = data.x[all_nodes].to(device)
         intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj_matrices)
+        # check intermediate outputs shape
 
-        for layer_num, intermediate_output in zip([2, 4, 8, 16, 32], intermediate_outputs):
+        for layer_num, intermediate_output in zip([2, 4, 8, 16, 32, 64, -1], intermediate_outputs):
+            print(intermediate_output.shape)
             energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj_matrices)
             dirichlet_energies[layer_num].append((energy1, energy2))
             mads[layer_num].append(mad)
+            print(f'Layer {layer_num}: Energy 1: {energy1:.6f}, Energy 2: {energy2:.6f}, MAD: {mad:.6f}')
 
-    for layer_num in [2, 4, 8, 16, 32]:
+    for layer_num in [2, 4, 8, 16, 32, 64, -1]:
         avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
         avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
         avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
