@@ -130,13 +130,29 @@ def train(args: Arguments):
                         f'valid_f1={f1:.3f}')
             wandb.log(log_dict)
 
+    #x = data.x.to(device)
+    logits, gcn_mem_alloc = gcn_c(x, adj.to(device))
+    test_predictions = torch.argmax(logits, dim=1)[data.test_mask].cpu()
+    targets = data.y[data.test_mask]
+    test_accuracy = accuracy_score(targets, test_predictions)
+    test_f1 = f1_score(targets, test_predictions, average='micro')
+
+    
     # Compute Dirichlet energies and MAD for specified layers at the end of training
     layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
     mads = {layer_num: [] for layer_num in layer_nums}
 
-    x = data.x.to(device)
-    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj.to(device))
+    # move the model to CPU
+    gcn_c = gcn_c.cpu()
+
+    # move data to CPU
+    x = data.x.cpu()
+    adj = adj.cpu()
+
+    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj)
+
+    # calculate metrics for specified layers
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
         energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj)
         dirichlet_energies[layer_num].append((energy1, energy2))
@@ -153,13 +169,7 @@ def train(args: Arguments):
                     f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, '
                     f'Final MAD at layer {layer_num}: {avg_mad:.6f}')
 
-    #x = data.x.to(device)
-    logits, gcn_mem_alloc = gcn_c(x, adj.to(device))
-    test_predictions = torch.argmax(logits, dim=1)[data.test_mask].cpu()
-    targets = data.y[data.test_mask]
-    test_accuracy = accuracy_score(targets, test_predictions)
-    test_f1 = f1_score(targets, test_predictions, average='micro')
-
+    
     #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj) 
 
     wandb.log({'test_accuracy': test_accuracy,
