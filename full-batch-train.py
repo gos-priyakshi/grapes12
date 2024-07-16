@@ -139,7 +139,7 @@ def train(args: Arguments):
 
     
     # Compute Dirichlet energies and MAD for specified layers at the end of training
-    layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
+    layer_nums = [2, 4, 8, 16, 32, 64, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
     mads = {layer_num: [] for layer_num in layer_nums}
 

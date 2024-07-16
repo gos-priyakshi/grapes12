@@ -59,7 +59,7 @@ class GCN(nn.Module):
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
         intermediate_outputs = []
 
-        target_layers = [2, 4, 8, 16, 32, 64, 128]
+        target_layers = [2, 4, 8, 16, 32, 64]
         
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
