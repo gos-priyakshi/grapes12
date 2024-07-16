@@ -152,15 +152,9 @@ def train(args: Arguments):
 
     intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj)
 
-    # extract intermediate outputs of validation nodes
-    val_intermediate_outputs = [intermediate_output[data.val_mask] for intermediate_output in intermediate_outputs]
-
-    # ensure adjacency is correct shape
-    adj_val = adj[data.val_mask][:, data.val_mask]
-
     # calculate metrics for specified layers for
-    for layer_num, intermediate_output in zip(layer_nums, val_intermediate_outputs):
-        energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj_val)
+    for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
+        energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj)
         dirichlet_energies[layer_num].append((energy1, energy2))
         mads[layer_num].append(mad)
 
