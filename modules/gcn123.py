@@ -81,8 +81,8 @@ class GCN(nn.Module):
         adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
         energy1 = calculate_dirichlet(x, adj)
         energy2 = calculate_dirichlet_energy(x, adj)
-        mad = mean_average_distance_sparse(x, adj)
-        return energy1, energy2, mad
+        #mad = mean_average_distance_sparse(x, adj)
+        return energy1, energy2
     
     #def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
      #   energy = calculate_dirichlet_energy_sparse(x, adj)

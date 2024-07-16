@@ -141,7 +141,7 @@ def train(args: Arguments):
     # Compute Dirichlet energies and MAD for specified layers at the end of training
     layer_nums = [2, 4, 8, 16, 32, 64, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
-    mads = {layer_num: [] for layer_num in layer_nums}
+    #mads = {layer_num: [] for layer_num in layer_nums}
 
     # move the model to CPU
     gcn_c = gcn_c.cpu()
@@ -157,20 +157,18 @@ def train(args: Arguments):
 
     # calculate metrics for specified layers for
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
-        energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj)
+        energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj)
         dirichlet_energies[layer_num].append((energy1, energy2))
-        mads[layer_num].append(mad)
+        #mads[layer_num].append(mad)
 
     for layer_num in layer_nums:
         avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
         avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
-        avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
+        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
         wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
-                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2,
-                   f'avg_mad_{layer_num}': avg_mad})
+                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2})
         logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
-                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, '
-                    f'Final MAD at layer {layer_num}: {avg_mad:.6f}')
+                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}')
 
     
     #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj) 

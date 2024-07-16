@@ -317,7 +317,7 @@ def train(args: Arguments):
         all_mem_allocations_point3.extend(mem_allocations_point3)
 
         if (epoch + 1) % args.eval_frequency == 0:
-            accuracy, f1, _, _, _ = evaluate(gcn_c,
+            accuracy, f1, _, _ = evaluate(gcn_c,
                                     gcn_gf,
                                     data,
                                     args,
@@ -361,10 +361,9 @@ def train(args: Arguments):
     # Calculate metrics on a few training batches after all epochs are done
     
     
-    
     layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
-    mads = {layer_num: [] for layer_num in layer_nums}
+    #mads = {layer_num: [] for layer_num in layer_nums}
 
     # full batch message passing for evaluation
     edge_index = data.edge_index
@@ -385,31 +384,28 @@ def train(args: Arguments):
     adj_mat = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
 
     # get intermediate outputs
-    val_x = data.x[val_idx].cpu()
-    intermediate_outputs = gcn_c.get_intermediate_outputs(val_x, adj_mat)
+    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj_mat)
 
     # calculate metrics for specified layers
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
-        energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj_mat)
+        energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj_mat)
         dirichlet_energies[layer_num].append((energy1, energy2))
-        mads[layer_num].append(mad)
+        #mads[layer_num].append(mad)
 
 
     for layer_num in layer_nums:
         avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
         avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
-        avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
+        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
 
         wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
-                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2,
-                   f'avg_mad_{layer_num}': avg_mad})
+                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2})
         
         logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
-                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, '
-                    f'Final MAD at layer {layer_num}: {avg_mad:.6f}')
+                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, ')
     
 
-    test_accuracy, test_f1, e1, e2, m = evaluate(gcn_c,
+    test_accuracy, test_f1, e1, e2 = evaluate(gcn_c,
                                       gcn_gf,
                                       data,
                                       args,
@@ -425,8 +421,7 @@ def train(args: Arguments):
     wandb.log({'test_accuracy': test_accuracy,
                'test_f1': test_f1,
                'de1': e1,
-               'de2': e2,
-               'md': m})
+               'de2': e2})
     logger.info(f'test_accuracy={test_accuracy:.3f}, '
                 f'test_f1={test_f1:.3f}')
     return test_f1, all_mem_allocations_point1, all_mem_allocations_point2, all_mem_allocations_point3

@@ -69,7 +69,7 @@ def evaluate(gcn_c: torch.nn.Module,
         logits_total, _ = gcn_c(x, adj_mat)
 
         # calculate metrics 
-        e1, e2, m = gcn_c.calculate_metrics(logits_total, adj_mat)
+        e1, e2 = gcn_c.calculate_metrics(logits_total, adj_mat)
 
         #logits_total, _ = gcn_c(x, edge_index)
         if data.y[mask].dim() == 1:
