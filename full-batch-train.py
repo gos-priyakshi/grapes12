@@ -148,7 +148,7 @@ def train(args: Arguments):
     num_nodes = len(val_nodes)
 
     # get edge_index for validation nodes
-    val_edge_index = data.edge_index[val_idx]
+    val_edge_index = data.edge_index[:, val_idx]
     val_adj = convert_edge_index_to_adj_sparse(val_edge_index, num_nodes).cpu()
     
     # move the model to CPU
