@@ -143,21 +143,17 @@ def train(args: Arguments):
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
     mads = {layer_num: [] for layer_num in layer_nums}
 
-    val_mask = data.val_mask
-    val_nodes = torch.arange(data.num_nodes)[val_mask]
-    num_nodes = len(val_nodes)
-
-    # get edge_index for validation nodes
-    val_edge_index = data.edge_index[:, val_idx]
-    val_adj = convert_edge_index_to_adj_sparse(val_edge_index, num_nodes).cpu()
-    
     # move the model to CPU
     gcn_c = gcn_c.cpu()
+    x = data.x.cpu()
+    adj = adj.cpu()
 
-    # move data to CPU
-    val_x = data.x[val_nodes].cpu()
+    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj)
 
-    intermediate_outputs = gcn_c.get_intermediate_outputs(val_x, val_adj)
+    # get intermediate for val set
+    # check shape of intermediate_outputs
+
+    intermediate_outputs = [intermediate_output[val_idx] for intermediate_output in intermediate_outputs].cpu()
 
     # calculate metrics for specified layers for
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
