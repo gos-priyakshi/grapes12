@@ -189,4 +189,4 @@ def evaluate(gcn_c: torch.nn.Module,
         accuracy = accuracy_score(targets, all_predictions)
         f1 = f1_score(targets, all_predictions, average='micro')
 
-    return accuracy, f1, e1, e2, m
+    return accuracy, f1, e1, e2
