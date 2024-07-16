@@ -150,7 +150,8 @@ def train(args: Arguments):
     x = data.x.cpu()
     adj = adj.cpu()
 
-    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj)
+    val_x = data.x[val_idx].cpu()
+    intermediate_outputs = gcn_c.get_intermediate_outputs(val_x, adj)
 
     # calculate metrics for specified layers
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
@@ -173,10 +174,7 @@ def train(args: Arguments):
     #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj) 
 
     wandb.log({'test_accuracy': test_accuracy,
-               'test_f1': test_f1,
-               'energy1': energy1,
-               'energy2': energy2,
-               'mad': mad})
+               'test_f1': test_f1})
     logger.info(f'test_accuracy={test_accuracy:.3f}, '
                 f'test_f1={test_f1:.3f}')
 
