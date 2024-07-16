@@ -153,7 +153,7 @@ def train(args: Arguments):
     # get intermediate for val set
     # check shape of intermediate_outputs
 
-    intermediate_outputs = [intermediate_output[val_idx].cpu() for intermediate_output in intermediate_outputs]
+    #intermediate_outputs = [intermediate_output[val_idx].cpu() for intermediate_output in intermediate_outputs]
 
     # calculate metrics for specified layers for
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
