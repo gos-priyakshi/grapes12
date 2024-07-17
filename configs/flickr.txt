@@ -1,6 +1,6 @@
 --batch_size 256
 --dataset "flickr"
---eval_frequency 10
+--eval_frequency 50
 --eval_full_batch true
 --eval_on_cpu true
 --hidden_dim 256

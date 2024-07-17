@@ -84,20 +84,6 @@ class GCN(nn.Module):
         #mad = mean_average_distance_sparse(x, adj)
         return energy1, energy2
     
-    #def calculate_and_store_metrics(self, x: torch.Tensor, adj: torch.Tensor):
-     #   energy = calculate_dirichlet_energy_sparse(x, adj)
-     #   mad = mean_average_distance_sparse(x, adj)
-     #   self.energy_values.append(energy)
-     #   self.mad_values.append(mad)
-
-    #def get_dirichlet_energy(self):
-    #    """Returns the list of Dirichlet energy values at each layer after training."""
-    #    return self.energy_values
-    
-    #def get_mean_average_distance(self):
-    #    """Returns the list of mean average distance values at each layer after training."""
-    #    return self.mad_values
-
         
 class ResGCN(nn.Module):
     def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0.):
