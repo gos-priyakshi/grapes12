@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -134,7 +135,7 @@ class ResGCN(nn.Module):
             x = F.dropout(x, p=self.dropout)
             if i in target_layers:
                 intermediate_outputs.append(x.clone())
-                
+
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj)
         logits = F.dropout(logits, p=self.dropout)
@@ -209,12 +210,39 @@ class GCNII(nn.Module):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
             layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
             layer_inner = self.act_fn(layer(layer_inner, adj, _layers[0], self.lamda, self.alpha, i + 1))
+            _layers.append(layer_inner)
         
         # Apply dropout and the final linear transformation
         layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
         logits = self.fc_out(layer_inner)
         
-        return F.log_softmax(logits, dim=1)
+        return logits
+    
+    def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
+        x = F.dropout(x, self.dropout, training=self.training)
+        h0 = self.act_fn(self.fc_in(x))
+
+        intermediate_outputs = []
+        target_layers = [2, 4, 8, 16, 32, 64, 128]
+        layer_inner = h0
+
+        for i, layer in enumerate(self.gcn_layers):
+            adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
+            layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
+            layer_inner = self.act_fn(layer(layer_inner, adj, h0, self.lamda, self.alpha, i + 1))
+            if i + 1 in target_layers:
+                intermediate_outputs.append(layer_inner.clone())
+
+        layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
+        intermediate_outputs.append(self.fc_out(layer_inner))
+
+        return intermediate_outputs
+    
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+        energy1 = calculate_dirichlet(x, adj)
+        energy2 = calculate_dirichlet_energy(x, adj)
+        return energy1, energy2
 
 
 class GAT(nn.Module):
