@@ -102,10 +102,10 @@ class ResGCN(nn.Module):
 
         for i, layer in enumerate(self.gcn_layers[:-1], start=1):
             adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
-            x_new = torch.relu(layer(x, adj))
+            x_new = torch.relu(layer(x, adj)) # F(X_{n-1}, G)
             
             # residual connection
-            x = x + x_new
+            x = x + x_new # X_n = X_{n-1} + F(X_{n-1}, G)
 
             x = F.dropout(x, p=self.dropout, training=self.training)
 
@@ -114,8 +114,34 @@ class ResGCN(nn.Module):
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
-
         return logits, memory_alloc
+    
+    def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
+        intermediate_outputs = []
+        target_layers = [2, 4, 8, 16, 32, 64, 128]
+
+        for i, layer in enumerate(self.gcn_layers[:-1], start=1):
+            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
+            x_new = torch.relu(layer(x, adj))
+            x = x + x_new
+            x = F.dropout(x, p=self.dropout)
+
+            if i in target_layers:
+                intermediate_outputs.append(x.clone())
+
+        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+        logits = self.gcn_layers[-1](x, adj)
+        logits = F.dropout(logits, p=self.dropout)
+        intermediate_outputs.append(logits)
+        return intermediate_outputs
+
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+        energy1 = calculate_dirichlet(x, adj)
+        energy2 = calculate_dirichlet_energy(x, adj)
+        return energy1, energy2
+    
+
     
 
 
