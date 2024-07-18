@@ -70,7 +70,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 64 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
@@ -88,9 +88,9 @@ def train(args: Arguments):
     test_idx = data.test_mask.nonzero().squeeze(1)
     test_loader = DataLoader(TensorDataset(test_idx), batch_size=args.batch_size)
 
-    adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
-                               data.edge_index),
-                              shape=(data.num_nodes, data.num_nodes))
+    #adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
+    #                           data.edge_index),
+    #                          shape=(data.num_nodes, data.num_nodes))
     
     # convert edge index to adjacency matrix
     adj = convert_edge_index_to_adj_sparse(data.edge_index, data.num_nodes)
@@ -101,7 +101,7 @@ def train(args: Arguments):
         acc_loss_c = 0
         acc_loss_binom = 0
 
-        with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
+        with tqdm(total=1, desc=f'Epoch {epoch}') as bar:
             x = data.x.to(device)
             logits, gcn_mem_alloc = gcn_c(x, adj.to(device))
             loss_c = loss_fn(logits[data.train_mask], data.y[data.train_mask].to(device))
@@ -139,7 +139,7 @@ def train(args: Arguments):
 
     
     # Compute Dirichlet energies and MAD for specified layers at the end of training
-    layer_nums = [2, 4, 8, 16, 32, 64, -1]
+    layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
     #mads = {layer_num: [] for layer_num in layer_nums}
 
