@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from modules.data import get_data, get_ppi
-from modules.gcn123 import GCN, ResGCN
+from modules.gcn123 import GCN, ResGCN, GCNII
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse)
 
@@ -70,7 +70,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = ResGCN(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
