@@ -96,17 +96,23 @@ class ResGCN(nn.Module):
             gcn_layers.append(GCNConv(in_channels=dims[i], out_channels=dims[i + 1]))
 
         self.gcn_layers = nn.ModuleList(gcn_layers)
+        self.residual_transforms = nn.ModuleList()
+
+        for i in range(len(hidden_dims)):
+            if dims[i] != dims[i + 1]:
+                self.residual_transforms.append(nn.Linear(dims[i], dims[i + 1]))
+            else:
+                self.residual_transforms.append(nn.Identity())
 
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
 
-        for i, layer in enumerate(self.gcn_layers[:-1], start=1):
+        for i, (layer, transform) in enumerate(zip(self.gcn_layers[:-1], self.residual_transforms), start=1):
             adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
             x_new = torch.relu(layer(x, adj)) # F(X_{n-1}, G)
-            
+            x_res = transform(x) 
             # residual connection
-            x = x + x_new # X_n = X_{n-1} + F(X_{n-1}, G)
-
+            x = x_res + x_new # X_n = X_{n-1} + F(X_{n-1}, G)
             x = F.dropout(x, p=self.dropout, training=self.training)
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
@@ -120,15 +126,15 @@ class ResGCN(nn.Module):
         intermediate_outputs = []
         target_layers = [2, 4, 8, 16, 32, 64, 128]
 
-        for i, layer in enumerate(self.gcn_layers[:-1], start=1):
+        for i, (layer, transform) in enumerate(zip(self.gcn_layers[:-1], self.residual_transforms[:-1]), start=1):
             adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
             x_new = torch.relu(layer(x, adj))
-            x = x + x_new
+            x_res = transform(x)
+            x = x_res + x_new
             x = F.dropout(x, p=self.dropout)
-
             if i in target_layers:
                 intermediate_outputs.append(x.clone())
-
+                
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj)
         logits = F.dropout(logits, p=self.dropout)
