@@ -92,19 +92,18 @@ class ResGCN(nn.Module):
         self.dropout = dropout
         dims = [in_features] + hidden_dims
         gcn_layers = []
+        residual_transforms = []
 
         for i in range(len(hidden_dims)):
             gcn_layers.append(GCNConv(in_channels=dims[i], out_channels=dims[i + 1]))
+            if dims[i] != dims[i + 1]:
+                residual_transforms.append(nn.Linear(dims[i], dims[i + 1]))
+            else:
+                residual_transforms.append(nn.Identity())
 
         self.gcn_layers = nn.ModuleList(gcn_layers)
-        self.residual_transforms = nn.ModuleList()
-
-        for i in range(len(hidden_dims)):
-            if dims[i] != dims[i + 1]:
-                self.residual_transforms.append(nn.Linear(dims[i], dims[i + 1]))
-            else:
-                self.residual_transforms.append(nn.Identity())
-
+        self.residual_transforms = nn.ModuleList(residual_transforms)
+        
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
 
