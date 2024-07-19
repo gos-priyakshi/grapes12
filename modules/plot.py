@@ -2,24 +2,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Sample data
-x_values = ['2', '4', '8', '16', '32', '64', '-1']
-y_values = [2.2, 2.6, 7.8, 129, 36898, 3855974, 3855974]
-y_2 = [1.03, 0.45, 0.15, 0.01, 0.00005, 0.000000001, 0.0000000003]
-# apply log scale to y_values and x values
+x_values = ['2', '4', '8', '16', '32', '64', '128', '-1']
+y_values = [1.136, 0.53, 0.152, 0.0068, 0.000022, 3.057e-10, 4.57e-20, 5.69e-21]
+y_2 = [1.149, 0.6264, 0.154, 0.009, 0.000039, 6.69e-10, 2e-19, 5.48e-20]
+#y_3 = [3.25, 3.83, 7.6, 55, 2569, 554366, 1972222, 1972222]
+
+# Apply log scale to y_values and y_2
 y_values = np.log2(y_values)
 y_2 = np.log2(y_2)
 
-# Plotting the curve and save it
-plt.plot(x_values, y_values, label='Dirichlet Energy 1')
-plt.plot(x_values, y_2, label='Dirichlet Energy 2')
+# Plotting the curve
+plt.plot(x_values, y_values, label='fb')
+plt.plot(x_values, y_2, label='grapes')
+#plt.plot(x_values, y_3, label='res')
 plt.title('Simple Curve Plot')
-plt.xlabel('layers')
-plt.ylabel('Y-axis')
-#plt.ylim(1e-15, 7)
-#plt.yticks(np.arange(1e-15, 7, 1e-5))
-#plt.xlim(0, 70)
-#plt.grid(True)  # Adds a grid for better readability
+plt.xlabel('Layers')
+plt.ylabel('DE')
+plt.legend()  # Add legend
+plt.grid(True)  # Adds a grid for better readability
 plt.show()  # Displays the plot
 
 # Save the plot
-plt.savefig('simple_curve_plot_md.png' )  # Save the plot as a PNG file
+plt.savefig('plot2.png')  # Save the plot as a PNG file
