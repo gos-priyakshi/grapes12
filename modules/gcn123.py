@@ -231,7 +231,7 @@ class GCNConvII(nn.Module):
         # calculate theta based on lambda and l
         theta = math.log(lamda/l + 1)
         print(f"shapes: input: {input.shape}, adj: {adj.shape}, h0: {h0.shape}, weight: {self.weight.shape}")
-        hi = torch.sparse.mm(adj, input)
+        hi = torch.spmm(adj, input)
         if self.variant:
             # Variant case: concatenate hi and h0 along dimension 1
             support = torch.cat([hi, h0], dim=1)
@@ -242,7 +242,7 @@ class GCNConvII(nn.Module):
             r = support
         #check the shapes of support and weight
         print(f"GCNConvII: support shape: {support.shape}, weight shape: {self.weight.shape}")
-        output = theta * torch.sparse.mm(support, self.weight) + (1 - theta)*r
+        output = theta * torch.mm(support, self.weight) + (1 - theta)*r
         if self.residual:
             # Add residual connection if enabled
             output += input
@@ -260,8 +260,8 @@ class GCNII(nn.Module):
         dims = [in_features] + hidden_dims
         self.gcn_layers = nn.ModuleList()
         
-        for i in range(len(dims) - 1):
-            self.gcn_layers.append(GCNConvII(dims[i], dims[i + 1]))
+        for i in range(hidden_dims):
+            self.gcn_layers.append(GCNConvII(hidden_dims[i], hidden_dims[i + 1]))
 
         self.fc_in = nn.Linear(in_features, hidden_dims[0])
         
