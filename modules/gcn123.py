@@ -259,11 +259,13 @@ class GCNII(nn.Module):
         
         dims = [in_features] + hidden_dims
         self.gcn_layers = nn.ModuleList()
+        n_hidden = hidden_dims[0]
         
         for i in range(len(hidden_dims)):
-            self.gcn_layers.append(GCNConvII(hidden_dims[i], hidden_dims[i + 1]))
+            self.gcn_layers.append(GCNConvII(n_hidden, n_hidden))
 
-        self.fc_in = nn.Linear(in_features, hidden_dims[0])
+        self.fc_in = nn.Linear(in_features, n_hidden)
+        self.fc_out = nn.Linear(n_hidden, hidden_dims[-1])
         
         #self.fc_in = nn.Linear(in_features, hidden_dims[0])
         #self.fc_out = nn.Linear(hidden_dims[-2], hidden_dims[-1])
@@ -284,6 +286,8 @@ class GCNII(nn.Module):
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj, h0, self.lamda, self.alpha, len(self.gcn_layers))
         logits = F.dropout(logits, self.dropout, training=self.training)
+
+        logits = self.fc_out(logits)
         
         return logits
     
