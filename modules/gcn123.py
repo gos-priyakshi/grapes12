@@ -230,6 +230,7 @@ class GCNConvII(nn.Module):
 
         # calculate theta based on lambda and l
         theta = math.log(lamda/l + 1)
+        print(f"shapes: input: {input.shape}, adj: {adj.shape}, h0: {h0.shape}, weight: {self.weight.shape}")
         hi = torch.sparse.mm(adj, input)
         if self.variant:
             # Variant case: concatenate hi and h0 along dimension 1
