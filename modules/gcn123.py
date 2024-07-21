@@ -260,7 +260,7 @@ class GCNII(nn.Module):
         dims = [in_features] + hidden_dims
         self.gcn_layers = nn.ModuleList()
         
-        for i in range(hidden_dims):
+        for i in range(len(hidden_dims)):
             self.gcn_layers.append(GCNConvII(hidden_dims[i], hidden_dims[i + 1]))
 
         self.fc_in = nn.Linear(in_features, hidden_dims[0])
