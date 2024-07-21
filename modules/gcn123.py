@@ -269,6 +269,7 @@ class GCNII(nn.Module):
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
         # Initial linear transformation
         h0 = self.fc_in(x)
+        x = h0
         
         # iterate over the GCN layers
         for i, layer in enumerate(self.gcn_layers[:-1]):
@@ -284,7 +285,8 @@ class GCNII(nn.Module):
     
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
         
-        h0 = self.fc_in(x)  
+        h0 = self.fc_in(x) 
+        x = h0 
 
         intermediate_outputs = []
         target_layers = [2, 4, 8, 16, 32, 64, 128]
