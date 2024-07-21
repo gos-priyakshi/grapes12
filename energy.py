@@ -1,6 +1,21 @@
+import argparse
+import re
+
+import torch
+import torch_geometric
+from modules.utils import (convert_edge_index_to_adj_sparse, normalize_laplacian)
+
+from modules.utils import TensorMap, get_logger, get_neighborhoods, slice_adjacency, sample_neighborhoods_from_probs
+
+def energy_sampling(args, gcn_gf, gcn_c, val_loader, node_map, mask, data, adjacency, num_indicators, layer_nums, device):
+
+    #layer_nums = [2, 4, 8, -1]
+    dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
+
     
-    dirichlet_energies = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], -1: []}
-    mads = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], -1: []}
+    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+    indicator_features = torch.zeros((data.num_nodes, num_indicators))
     
     for batch_idx, batch in enumerate(val_loader):
 
@@ -71,23 +86,61 @@
         intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj_matrices)
         # check intermediate outputs shape
 
-        for layer_num, intermediate_output in zip([2, 4, 8, 16, 32, 64, -1], intermediate_outputs):
-            print(intermediate_output.shape)
-            energy1, energy2, mad = gcn_c.calculate_metrics(intermediate_output, adj_matrices)
+        for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
+            #print(intermediate_output.shape)
+            energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj_matrices)
             dirichlet_energies[layer_num].append((energy1, energy2))
-            mads[layer_num].append(mad)
-            print(f'Layer {layer_num}: Energy 1: {energy1:.6f}, Energy 2: {energy2:.6f}, MAD: {mad:.6f}')
+            #print(f'Layer {layer_num}: Energy 1: {energy1:.6f}, Energy 2: {energy2:.6f}')
 
-    for layer_num in [2, 4, 8, 16, 32, 64, -1]:
-        avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
-        avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
-        avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
 
-        wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
-                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2,
-                   f'avg_mad_{layer_num}': avg_mad})
-        
-        logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
-                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, '
-                    f'Final MAD at layer {layer_num}: {avg_mad:.6f}')
+    #for layer_num in layer_nums:
+    #    avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+    #    avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+
+    #    print(f'Layer {layer_num}: Avg Energy 1: {avg_energy1:.6f}, Avg Energy 2: {avg_energy2:.6f}')
+
+    return dirichlet_energies    
+
+
+def energy_full_batch(args, gcn_c, data, layer_nums):
+
+    #layer_nums = [2, 4, 8, -1]
+    dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
+    #mads = {layer_num: [] for layer_num in layer_nums}
+
+    # full batch message passing for evaluation
+    edge_index = data.edge_index
+    x = data.x
+
+    # eval on cpu
+    x = x.cpu()
+    edge_index = edge_index.cpu()
+    gcn_c = gcn_c.cpu()
+
+    if isinstance(edge_index, list):
+        edge_indices = edge_index
+    else:
+        edge_indices = [edge_index for _ in range(args.sampling_hops)]
+
+    # convert edge indices to adjacency matrices
+    num_nodes = data.num_nodes
+    adj_mat = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
+
+    # get intermediate outputs
+    intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj_mat)
+
+    # calculate metrics for specified layers
+    for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
+        energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj_mat)
+        dirichlet_energies[layer_num].append((energy1, energy2))
+        #mads[layer_num].append(mad)
+
+
+    #for layer_num in layer_nums:
+    #    avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+    #    avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
+
+    return dirichlet_energies
+
     
