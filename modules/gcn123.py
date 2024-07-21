@@ -239,7 +239,9 @@ class GCNConvII(nn.Module):
             # Default case: combine hi and h0 with alpha
             support = (1-alpha)*hi + alpha*h0
             r = support
-        output = theta * torch.mm(support, self.weight) + (1 - theta)*r
+        #check the shapes of support and weight
+        print(f"GCNConvII: support shape: {support.shape}, weight shape: {self.weight.shape}")
+        output = theta * torch.sparse.mm(support, self.weight) + (1 - theta)*r
         if self.residual:
             # Add residual connection if enabled
             output += input
