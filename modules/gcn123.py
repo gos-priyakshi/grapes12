@@ -288,8 +288,10 @@ class GCNII(nn.Module):
         logits = F.dropout(logits, self.dropout, training=self.training)
 
         logits = self.fc_out(logits)
+
+        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
         
-        return logits
+        return logits, memory_alloc
     
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
         
