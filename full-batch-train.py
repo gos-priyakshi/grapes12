@@ -70,7 +70,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = ResGCN(data.num_features, hidden_dims=[args.hidden_dim] * 1 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
@@ -138,6 +138,12 @@ def train(args: Arguments):
     test_f1 = f1_score(targets, test_predictions, average='micro')
 
     
+    wandb.log({'test_accuracy': test_accuracy,
+               'test_f1': test_f1})
+    logger.info(f'test_accuracy={test_accuracy:.3f}, '
+                f'test_f1={test_f1:.3f}')
+
+    
     # Compute Dirichlet energies and MAD for specified layers at the end of training
     layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
@@ -173,10 +179,6 @@ def train(args: Arguments):
     
     #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj) 
 
-    wandb.log({'test_accuracy': test_accuracy,
-               'test_f1': test_f1})
-    logger.info(f'test_accuracy={test_accuracy:.3f}, '
-                f'test_f1={test_f1:.3f}')
 
     return test_f1
 

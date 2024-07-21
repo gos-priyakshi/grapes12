@@ -2,10 +2,10 @@
     dirichlet_energies = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], -1: []}
     mads = {2: [], 4: [], 8: [], 16: [], 32: [], 64: [], -1: []}
     
-    for batch_idx, batch in enumerate(train_loader):
+    for batch_idx, batch in enumerate(val_loader):
 
-        if batch_idx >= 5:
-            break
+        #if batch_idx >= 5:
+        #    break
 
         target_nodes = batch[0]
         previous_nodes = target_nodes.clone()
