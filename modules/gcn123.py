@@ -86,33 +86,88 @@ class GCN(nn.Module):
         return energy1, energy2
     
         
+#class ResGCN(nn.Module):
+#    def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0.):
+#        super(ResGCN, self).__init__()
+#        self.dropout = dropout
+#        dims = [in_features] + hidden_dims
+#        gcn_layers = []
+#        residual_transforms = []
+
+#        for i in range(len(hidden_dims)):
+#            gcn_layers.append(GCNConv(in_channels=dims[i], out_channels=dims[i + 1]))
+#            if dims[i] != dims[i + 1]:
+#                residual_transforms.append(nn.Linear(dims[i], dims[i + 1]))
+#            else:
+#                residual_transforms.append(nn.Identity())
+
+#        self.gcn_layers = nn.ModuleList(gcn_layers)
+#        self.residual_transforms = nn.ModuleList(residual_transforms)
+        
+
+#    def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
+
+#        for i, (layer, transform) in enumerate(zip(self.gcn_layers[:-1], self.residual_transforms), start=1):
+#            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
+#            x_new = torch.relu(layer(x, adj)) # F(X_{n-1}, G)
+#            x_res = transform(x) 
+            # residual connection
+#            x = x_res + x_new # X_n = X_{n-1} + F(X_{n-1}, G)
+#            x = F.dropout(x, p=self.dropout, training=self.training)
+
+#        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+#        logits = self.gcn_layers[-1](x, adj)
+#        logits = F.dropout(logits, p=self.dropout, training=self.training)
+
+#        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+#        return logits, memory_alloc
+    
+#    def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
+#        intermediate_outputs = []
+#        target_layers = [2, 4, 8, 16, 32, 64, 128]
+
+#        for i, (layer, transform) in enumerate(zip(self.gcn_layers[:-1], self.residual_transforms[:-1]), start=1):
+#            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
+#            x_new = torch.relu(layer(x, adj))
+#            x_res = transform(x)
+#            x = x_res + x_new
+#           x = F.dropout(x, p=self.dropout)
+#            if i in target_layers:
+#                intermediate_outputs.append(x.clone())
+#
+#        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+#        logits = self.gcn_layers[-1](x, adj)
+#        logits = F.dropout(logits, p=self.dropout)
+#        intermediate_outputs.append(logits)
+#        return intermediate_outputs
+#
+#    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
+#        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+#        energy1 = calculate_dirichlet(x, adj)
+#        energy2 = calculate_dirichlet_energy(x, adj)
+#        return energy1, energy2
+    
+
 class ResGCN(nn.Module):
-    def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0.):
+    def __init__(self,
+                 in_features: int,
+                 hidden_dims: list[int], dropout: float=0.):
         super(ResGCN, self).__init__()
         self.dropout = dropout
         dims = [in_features] + hidden_dims
         gcn_layers = []
-        residual_transforms = []
-
+        self.transform = nn.Linear(in_features, hidden_dims[0])  # Transform input features to hidden dimension
         for i in range(len(hidden_dims)):
             gcn_layers.append(GCNConv(in_channels=dims[i], out_channels=dims[i + 1]))
-            if dims[i] != dims[i + 1]:
-                residual_transforms.append(nn.Linear(dims[i], dims[i + 1]))
-            else:
-                residual_transforms.append(nn.Identity())
-
         self.gcn_layers = nn.ModuleList(gcn_layers)
-        self.residual_transforms = nn.ModuleList(residual_transforms)
-        
 
-    def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, list[torch.Tensor]]) -> torch.Tensor:
 
-        for i, (layer, transform) in enumerate(zip(self.gcn_layers[:-1], self.residual_transforms), start=1):
-            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
-            x_new = torch.relu(layer(x, adj)) # F(X_{n-1}, G)
-            x_res = transform(x) 
-            # residual connection
-            x = x_res + x_new # X_n = X_{n-1} + F(X_{n-1}, G)
+        x_0 = self.transform(x)
+
+        for i, layer in enumerate(self.gcn_layers[:-1]):
+            adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
+            x = torch.relu(layer(x, adj)) + x_0  # skip connection here
             x = F.dropout(x, p=self.dropout, training=self.training)
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
@@ -120,34 +175,35 @@ class ResGCN(nn.Module):
         logits = F.dropout(logits, p=self.dropout, training=self.training)
 
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+
         return logits, memory_alloc
     
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
+
         intermediate_outputs = []
         target_layers = [2, 4, 8, 16, 32, 64, 128]
 
-        for i, (layer, transform) in enumerate(zip(self.gcn_layers[:-1], self.residual_transforms[:-1]), start=1):
-            adj = adjacency[-i] if isinstance(adjacency, list) else adjacency
-            x_new = torch.relu(layer(x, adj))
-            x_res = transform(x)
-            x = x_res + x_new
+        x_0 = self.transform(x)
+
+        for i, layer in enumerate(self.gcn_layers[:-1]):
+            adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
+            x = torch.relu(layer(x, adj)) + x_0
             x = F.dropout(x, p=self.dropout)
-            if i in target_layers:
+            if i + 1 in target_layers:
                 intermediate_outputs.append(x.clone())
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj)
         logits = F.dropout(logits, p=self.dropout)
         intermediate_outputs.append(logits)
-        return intermediate_outputs
 
+        return intermediate_outputs
+    
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
         adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
         energy1 = calculate_dirichlet(x, adj)
         energy2 = calculate_dirichlet_energy(x, adj)
         return energy1, energy2
-    
-
     
 
 
@@ -162,78 +218,89 @@ class GCNConvII(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        # initialize the weights
         stdv = 1. / math.sqrt(self.out_channels)
         self.weight.data.uniform_(-stdv, stdv)
 
     def forward(self, input, adj, h0, lamda, alpha, l):
-        theta = math.log(lamda / (l + 1) + 1)
+
+        # add self-loops to sparse coo tensor and normalize the adjacency matrix
+        adj = add_self_loops(adj)
+        adj = normalize_laplacian_sparse(adj)
+
+        # calculate theta based on lambda and l
+        theta = math.log(lamda/l + 1)
         hi = torch.sparse.mm(adj, input)
         if self.variant:
+            # Variant case: concatenate hi and h0 along dimension 1
             support = torch.cat([hi, h0], dim=1)
+            r = (1-alpha)*hi + alpha*h0
         else:
-            support = (1 - alpha) * hi + alpha * h0
-        output = theta * torch.mm(support, self.weight) + (1 - theta) * support
+            # Default case: combine hi and h0 with alpha
+            support = (1-alpha)*hi + alpha*h0
+            r = support
+        output = theta * torch.mm(support, self.weight) + (1 - theta)*r
         if self.residual:
+            # Add residual connection if enabled
             output += input
         return output
     
 
 class GCNII(nn.Module):
-    def __init__(self, in_features: int, hidden_dims: List[int], nclass: int, dropout: float = 0.5, lamda: float = 0.5, alpha: float = 0.1, variant: bool = False):
+    def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0.5, lamda: float = 0.5, alpha: float = 0.1, variant: bool = False):
         super(GCNII, self).__init__()
         self.dropout = dropout
         self.lamda = lamda
         self.alpha = alpha
         self.variant = variant
         
-        dims = [in_features] + hidden_dims + [nclass]
+        dims = [in_features] + hidden_dims
         self.gcn_layers = nn.ModuleList()
         
-        for i in range(len(dims) - 2):
-            self.gcn_layers.append(GCNConvII(dims[i], dims[i + 1], residual=True, variant=variant))
-        
+        for i in range(len(dims) - 1):
+            self.gcn_layers.append(GCNConvII(dims[i], dims[i + 1]))
+
         self.fc_in = nn.Linear(in_features, hidden_dims[0])
-        self.fc_out = nn.Linear(hidden_dims[-1], nclass)
-        self.act_fn = nn.ReLU()
+        
+        #self.fc_in = nn.Linear(in_features, hidden_dims[0])
+        #self.fc_out = nn.Linear(hidden_dims[-2], hidden_dims[-1])
+        #self.act_fn = nn.ReLU()
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
         # Initial linear transformation
-        x = F.dropout(x, self.dropout, training=self.training)
-        h0 = self.act_fn(self.fc_in(x))
+        h0 = self.fc_in(x)
         
-        # Store the initial transformed features
-        _layers = [h0]
-        layer_inner = h0
-        
-        for i, layer in enumerate(self.gcn_layers):
+        # iterate over the GCN layers
+        for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
-            layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
-            layer_inner = self.act_fn(layer(layer_inner, adj, _layers[0], self.lamda, self.alpha, i + 1))
-            _layers.append(layer_inner)
-        
-        # Apply dropout and the final linear transformation
-        layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
-        logits = self.fc_out(layer_inner)
+            x = torch.relu(layer(x, adj, h0, self.lamda, self.alpha, i + 1))
+            x = F.dropout(x, self.dropout, training=self.training)
+
+        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+        logits = self.gcn_layers[-1](x, adj, h0, self.lamda, self.alpha, len(self.gcn_layers))
+        logits = F.dropout(logits, self.dropout, training=self.training)
         
         return logits
     
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
-        x = F.dropout(x, self.dropout, training=self.training)
-        h0 = self.act_fn(self.fc_in(x))
+        
+        h0 = self.fc_in(x)  
 
         intermediate_outputs = []
         target_layers = [2, 4, 8, 16, 32, 64, 128]
-        layer_inner = h0
 
-        for i, layer in enumerate(self.gcn_layers):
+        for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
-            layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
-            layer_inner = self.act_fn(layer(layer_inner, adj, h0, self.lamda, self.alpha, i + 1))
+            x = torch.relu(layer(x, adj, h0, self.lamda, self.alpha, i + 1))
+            x = F.dropout(x, self.dropout)
             if i + 1 in target_layers:
-                intermediate_outputs.append(layer_inner.clone())
+                intermediate_outputs.append(x.clone())
 
-        layer_inner = F.dropout(layer_inner, self.dropout, training=self.training)
-        intermediate_outputs.append(self.fc_out(layer_inner))
+        adj = adjacency[0] if isinstance(adjacency, list) else adjacency
+        logits = self.gcn_layers[-1](x, adj, h0, self.lamda, self.alpha, len(self.gcn_layers))
+        logits = F.dropout(logits, self.dropout)
+
+        intermediate_outputs.append(logits)
 
         return intermediate_outputs
     
@@ -252,11 +319,10 @@ class GAT(nn.Module):
 
         dims = [in_features] + hidden_dims
         gat_layers = []
-        for i in range(len(hidden_dims) - 1):
+        for i in range(len(dims) - 1):
             gat_layers.append(GATConv(in_channels=dims[i],
                                       out_channels=dims[i + 1]))
-
-        gat_layers.append(GATConv(in_channels=dims[-2], out_channels=dims[-1]))
+            
         self.gat_layers = nn.ModuleList(gat_layers)
 
     def forward(self,
@@ -276,6 +342,37 @@ class GAT(nn.Module):
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
 
         return logits, memory_alloc
+
+    def intermediate_outputs(self,
+                             x: torch.Tensor,
+                             edge_index: Union[torch.Tensor, list[torch.Tensor]],
+                             ) -> List[torch.Tensor]:
+        
+        intermediate_outputs = []
+        target_layers = [2, 4, 8, 16, 32, 64, 128]
+
+        for i, layer in enumerate(self.gat_layers[:-1], start=1):
+            edges = edge_index[-i] if type(edge_index) == list else edge_index
+            x = torch.relu(layer(x, edges))
+            if i in target_layers:
+                intermediate_outputs.append(x.clone())
+
+        edges = edge_index[0] if type(edge_index) == list else edge_index
+        logits = self.gat_layers[-1](x, edges)
+
+        intermediate_outputs.append(logits)
+
+        return intermediate_outputs
+    
+
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, list[torch.Tensor]]):
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+        energy1 = calculate_dirichlet(x, adj)
+        energy2 = calculate_dirichlet_energy(x, adj)
+        return energy1, energy2
+
+
+        
 
 # GATv2
 
@@ -323,6 +420,39 @@ class GATv2(nn.Module):
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
 
         return logits, memory_alloc
+
+
+    def intermediate_outputs(self,
+                             x: torch.Tensor,
+                             edge_index: Union[torch.Tensor, list[torch.Tensor]],
+                             ) -> List[torch.Tensor]:
+        
+        intermediate_outputs = []
+        target_layers = [2, 4, 8, 16, 32, 64, 128]
+
+        for i, layer in enumerate(self.gatv2_layers[:-1], start=1):
+            edges = edge_index[-i] if type(edge_index) == list else edge_index
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            x = F.elu(layer(x, edges))
+            if i in target_layers:
+                intermediate_outputs.append(x.clone())
+
+        edges = edge_index[0] if type(edge_index) == list else edge_index
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        logits = self.gatv2_layers[-1](x, edges)
+
+        intermediate_outputs.append(logits)
+
+        return intermediate_outputs
+    
+    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, list[torch.Tensor]]):
+        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
+        energy1 = calculate_dirichlet(x, adj)
+        energy2 = calculate_dirichlet_energy(x, adj)
+        return energy1, energy2
+    
+
+    
     
     
 

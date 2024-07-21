@@ -202,6 +202,22 @@ def calculate_dirichlet_energy(x : Tensor, adj: torch.sparse.FloatTensor):
 
     return torch.sqrt(de / num_nodes).item()
 
+def calculate_dirichlet_energy1(x: torch.Tensor, adj: torch.sparse.FloatTensor) -> float:
+    num_nodes = x.shape[0]
+    row, col = adj.indices()
+    
+    # Calculate the difference between connected nodes
+    diff = x[row] - x[col]
+    
+    # Calculate squared L2 norms for these differences
+    diff_squared_norms = torch.norm(diff, p=2, dim=1).pow(2)
+    
+    # Sum all squared norms
+    de = diff_squared_norms.sum()
+    
+    # Normalize by the number of nodes and take the square root
+    return torch.sqrt(de / num_nodes).item()
+
 
 def calculate_dirichlet(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) -> float:
     num_nodes = X.shape[0]
@@ -226,37 +242,26 @@ def calculate_dirichlet(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) ->
     
     return energy.item()
 
-def calculate_dirichlet_energy_sparse(x: torch.Tensor, adj: torch.sparse.FloatTensor) -> float:
-    """Calculates the Dirichlet energy of node features x on a graph with adjacency matrix adj."""
-    # Add self-loops to the adjacency matrix
-    adj = add_self_loops(adj)
-    
-    # Calculate the normalized Laplacian
-    laplacian = normalize_laplacian_sparse(adj)
-    
-    # Create a sparse identity matrix
-    num_nodes = adj.size(0)
-    indices = torch.arange(num_nodes, device=adj.device)
-    indices = torch.stack([indices, indices], dim=0)
-    values = torch.ones(num_nodes, device=adj.device)
-    identity = torch.sparse_coo_tensor(indices, values, (num_nodes, num_nodes), device=adj.device)
-    
-    # Calculate the augmented normalized Laplacian
-    augmented_laplacian = identity - laplacian
-    
-    # Move the augmented Laplacian to the same device as x
-    augmented_laplacian = augmented_laplacian.to(x.device)
+def calculate_dirichlet1(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) -> float:
+    num_nodes = X.shape[0]
+    row, col = adjacency.indices()
 
-    # Print shapes of matrices for debugging
-    print(f"x shape: {x.shape}")
-    print(f"adj shape: {adj.shape}")
-    print(f"laplacian shape: {laplacian.shape}")
-    print(f"augmented_laplacian shape: {augmented_laplacian.shape}")
-    
-    # Calculate the Dirichlet energy
-    energy = torch.mm(x.t(), torch.sparse.mm(augmented_laplacian, x))
-    energy = torch.trace(energy)
-    
+    degree = torch.sparse.sum(adjacency, dim=1).to_dense()
+
+    # Degree normalization
+    sqrt_degree = torch.sqrt(1 + degree)
+
+    X_normalized = X / sqrt_degree[:, None]  # Broadcasting to normalize each row by sqrt_degree
+
+    # Calculate the difference between connected nodes
+    diff = X_normalized[row] - X_normalized[col]
+
+    # Calculate squared L2 norms for these differences
+    diff_squared_norms = torch.norm(diff, p=2, dim=1).pow(2)
+
+    # Sum all squared norms and divide by 2
+    energy = diff_squared_norms.sum() / 2
+
     return energy.item()
 
 
