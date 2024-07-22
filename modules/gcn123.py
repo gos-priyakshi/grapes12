@@ -201,8 +201,8 @@ class ResGCN(nn.Module):
     
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
         adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
-        energy1 = calculate_dirichlet(x, adj)
-        energy2 = calculate_dirichlet_energy(x, adj)
+        energy1 = calculate_dirichlet_energy2(x, adj)
+        energy2 = calculate_dirichlet_energy1(x, adj)
         return energy1, energy2
     
 
@@ -318,8 +318,8 @@ class GCNII(nn.Module):
     
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]):
         adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
-        energy1 = calculate_dirichlet(x, adj)
-        energy2 = calculate_dirichlet_energy(x, adj)
+        energy1 = calculate_dirichlet_energy2(x, adj)
+        energy2 = calculate_dirichlet_energy1(x, adj)
         return energy1, energy2
 
 
@@ -379,8 +379,8 @@ class GAT(nn.Module):
 
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, list[torch.Tensor]]):
         adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
-        energy1 = calculate_dirichlet(x, adj)
-        energy2 = calculate_dirichlet_energy(x, adj)
+        energy1 = calculate_dirichlet_energy2(x, adj)
+        energy2 = calculate_dirichlet_energy1(x, adj)
         return energy1, energy2
 
 
@@ -459,8 +459,8 @@ class GATv2(nn.Module):
     
     def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, list[torch.Tensor]]):
         adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
-        energy1 = calculate_dirichlet(x, adj)
-        energy2 = calculate_dirichlet_energy(x, adj)
+        energy1 = calculate_dirichlet_energy2(x, adj)
+        energy2 = calculate_dirichlet_energy1(x, adj)
         return energy1, energy2
     
 
