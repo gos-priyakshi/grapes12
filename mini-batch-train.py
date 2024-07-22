@@ -85,6 +85,9 @@ def train(args: Arguments):
     test_loader = DataLoader(TensorDataset(test_idx), batch_size=args.batch_size)
 
     adj = convert_edge_index_to_adj_sparse(data.edge_index, data.num_nodes)
+    adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
+                               data.edge_index),
+                              shape=(data.num_nodes, data.num_nodes))
 
     logger.info('Training')
     for epoch in range(1, args.max_epochs + 1):
@@ -92,7 +95,7 @@ def train(args: Arguments):
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch in train_loader:
                 batch_nodes = batch[0]
-                sub_adj, sub_x = sample_subgraph(data, batch_nodes, adj, args.sampling_hops)
+                sub_adj, sub_x = sample_subgraph(data, batch_nodes, adjacency, args.sampling_hops)
                 sub_adj = sub_adj.to(device)
                 sub_x = sub_x.to(device)
 
