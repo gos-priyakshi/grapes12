@@ -243,6 +243,7 @@ def calculate_dirichlet(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) ->
     return energy.item()
 
 def calculate_dirichlet_energy2(X: torch.Tensor, adjacency: torch.sparse.FloatTensor) -> float:
+    adjacency = adjacency.coalesce() # Ensure adjacency matrix is coalesced
     num_nodes = X.shape[0]
     row, col = adjacency.indices()
 
