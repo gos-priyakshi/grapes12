@@ -18,7 +18,9 @@ from modules.gcn123 import GCN, ResGCN, GCNII
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse)
 
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 class Arguments(Tap):
     dataset: str = 'cora'
@@ -44,6 +46,7 @@ class Arguments(Tap):
     log_wandb: bool = True
     config_file: str = None
 
+
 def train(args: Arguments):
     wandb.init(project='grapes',
                entity='p-goswami',
@@ -63,7 +66,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
@@ -89,11 +92,12 @@ def train(args: Arguments):
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch in train_loader:
                 batch_nodes = batch[0]
-                batch_x = data.x[batch_nodes].to(device)
-                batch_y = data.y[batch_nodes].to(device)
+                sub_adj, sub_x = sample_subgraph(data, batch_nodes, args.sampling_hops)
+                sub_adj = sub_adj.to(device)
+                sub_x = sub_x.to(device)
 
-                logits, _ = gcn_c(batch_x, adj.to(device))
-                loss_c = loss_fn(logits, batch_y)
+                logits, _ = gcn_c(sub_x, sub_adj)
+                loss_c = loss_fn(logits, data.y[batch_nodes].to(device))
 
                 optimizer_c.zero_grad()
                 loss_c.backward()
@@ -106,7 +110,7 @@ def train(args: Arguments):
         bar.close()
 
         if (epoch + 1) % args.eval_frequency == 0:
-            val_predictions, targets = evaluate(gcn_c, val_loader, data, adj, args)
+            val_predictions, targets = evaluate(gcn_c, val_loader, data, args)
             accuracy = accuracy_score(targets, val_predictions)
             f1 = f1_score(targets, val_predictions, average='micro')
 
@@ -115,7 +119,7 @@ def train(args: Arguments):
             logger.info(f'loss_c={acc_loss_c:.6f}, valid_f1={f1:.3f}')
             wandb.log(log_dict)
 
-    test_predictions, targets = evaluate(gcn_c, test_loader, data, adj, args)
+    test_predictions, targets = evaluate(gcn_c, test_loader, data, args)
     test_accuracy = accuracy_score(targets, test_predictions)
     test_f1 = f1_score(targets, test_predictions, average='micro')
 
@@ -127,19 +131,37 @@ def train(args: Arguments):
 
     return test_f1
 
-def evaluate(model, loader, data, adj, args):
+
+def sample_subgraph(data, batch_nodes, adj, num_hops):
+    sub_adj = []
+    sub_x = [data.x[batch_nodes]]
+    for _ in range(num_hops):
+        neighbors = get_neighborhoods(batch_nodes, adj)
+        sub_adj.append(neighbors)
+        batch_nodes = neighbors.view(-1)
+        sub_x.append(data.x[batch_nodes])
+    sub_adj = torch.cat(sub_adj, dim=1)
+    sub_x = torch.cat(sub_x, dim=0)
+    return sub_adj, sub_x
+
+
+def evaluate(model, loader, data, args):
     model.eval()
     all_predictions = []
     all_targets = []
     with torch.no_grad():
         for batch in loader:
             batch_nodes = batch[0].to(device)
-            batch_x = data.x[batch_nodes].to(device)
-            logits, _ = model(batch_x, adj.to(device))
+            sub_adj, sub_x = sample_subgraph(data, batch_nodes, args.sampling_hops)
+            sub_adj = sub_adj.to(device)
+            sub_x = sub_x.to(device)
+
+            logits, _ = model(sub_x, sub_adj)
             predictions = torch.argmax(logits, dim=1)
             all_predictions.append(predictions.cpu())
             all_targets.append(data.y[batch_nodes].cpu())
     return torch.cat(all_predictions), torch.cat(all_targets)
+
 
 def compute_dirichlet_energies(gcn_c, data, adj, logger, wandb):
     layer_nums = [2, 4, 8, -1]
@@ -162,6 +184,7 @@ def compute_dirichlet_energies(gcn_c, data, adj, logger, wandb):
                    f'avg_dirichlet_energy_2_{layer_num}': avg_energy2})
         logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
                     f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}')
+
 
 args = Arguments(explicit_bool=True).parse_args()
 
