@@ -92,7 +92,7 @@ def train(args: Arguments):
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch in train_loader:
                 batch_nodes = batch[0]
-                sub_adj, sub_x = sample_subgraph(data, batch_nodes, args.sampling_hops)
+                sub_adj, sub_x = sample_subgraph(data, batch_nodes, adj, args.sampling_hops)
                 sub_adj = sub_adj.to(device)
                 sub_x = sub_x.to(device)
 
@@ -149,10 +149,11 @@ def evaluate(model, loader, data, args):
     model.eval()
     all_predictions = []
     all_targets = []
+    adj = convert_edge_index_to_adj_sparse(data.edge_index, data.num_nodes)
     with torch.no_grad():
         for batch in loader:
             batch_nodes = batch[0].to(device)
-            sub_adj, sub_x = sample_subgraph(data, batch_nodes, args.sampling_hops)
+            sub_adj, sub_x = sample_subgraph(data, batch_nodes, adj, args.sampling_hops)
             sub_adj = sub_adj.to(device)
             sub_x = sub_x.to(device)
 
