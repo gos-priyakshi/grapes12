@@ -203,6 +203,8 @@ def calculate_dirichlet_energy(x : Tensor, adj: torch.sparse.FloatTensor):
     return torch.sqrt(de / num_nodes).item()
 
 def calculate_dirichlet_energy1(x: torch.Tensor, adj: torch.sparse.FloatTensor) -> float:
+
+    adj = adj.coalesce() # Ensure adjacency matrix is coalesced
     num_nodes = x.shape[0]
     row, col = adj.indices()
     
