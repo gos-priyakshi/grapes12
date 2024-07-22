@@ -1,5 +1,9 @@
 import argparse
+from cgi import test
+from math import log
 import os
+
+from networkx import neighbors
 
 import numpy as np
 import scipy.sparse as sp
@@ -45,6 +49,31 @@ class Arguments(Tap):
     notes: str = None
     log_wandb: bool = True
     config_file: str = None
+
+def sample_subgraph(data, batch_nodes, adjacency, num_hops):
+    
+    all_nodes = batch_nodes.clone().tolist()
+    all_edges = []
+
+    for _ in range(num_hops):
+        # get neighbors of all nodes in the batch
+        neighbors = get_neighborhoods(all_nodes, adjacency)
+        # update batch nodes with the neighbors
+        batch_nodes = torch.unique(neighbors.view(-1))
+        # add the new nodes to the list of all nodes
+        all_nodes += batch_nodes.tolist()
+
+        # create edge indices from the neighbors and add them to the list of all edges
+        edges = torch.stack([neighbors[0], neighbors[1]], dim=0)
+        all_edges.append(edges)
+
+    all_nodes = torch.unique(torch.tensor(all_nodes))
+    all_edges = torch.cat(all_edges, dim=1)
+    
+    sub_adj = convert_edge_index_to_adj_sparse(all_edges, len(all_nodes))
+    sub_x = data.x[all_nodes]
+
+    return sub_adj, sub_x, all_nodes
 
 
 def train(args: Arguments):
@@ -95,7 +124,9 @@ def train(args: Arguments):
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch in train_loader:
                 batch_nodes = batch[0]
-                sub_adj, sub_x = sample_subgraph(data, batch_nodes, adjacency, args.sampling_hops)
+                
+                sub_adj, sub_x, all_nodes = sample_subgraph(data, batch_nodes, adjacency, args.sampling_hops)
+
                 sub_adj = sub_adj.to(device)
                 sub_x = sub_x.to(device)
 
@@ -111,83 +142,73 @@ def train(args: Arguments):
                 bar.update()
 
         bar.close()
+        wandb.log({'loss_c': acc_loss_c/len(train_loader)})
 
         if (epoch + 1) % args.eval_frequency == 0:
-            val_predictions, targets = evaluate(gcn_c, val_loader, data, args)
-            accuracy = accuracy_score(targets, val_predictions)
+
+            # full batch evaluation
+            
+            adj = adj.to.cpu()
+
+            logits_total, _ = gcn_c(data.x, adj)
+            val_predictions = torch.argmax(logits_total, dim=1)[data.val_mask].cpu()
+            targets = data.y[data.val_mask]
             f1 = f1_score(targets, val_predictions, average='micro')
 
-            log_dict = {'epoch': epoch, 'valid_f1': f1}
-
-            logger.info(f'loss_c={acc_loss_c:.6f}, valid_f1={f1:.3f}')
+            log_dict = {'epoch': epoch,
+                        'valid_f1': f1}
+            
             wandb.log(log_dict)
 
-    test_predictions, targets = evaluate(gcn_c, test_loader, data, args)
-    test_accuracy = accuracy_score(targets, test_predictions)
+    # test
+    adj = adj.to(device)
+    logits_total, _ = gcn_c(data.x, adj)
+    test_predictions = torch.argmax(logits_total, dim=1)[data.test_mask].cpu()
+    targets = data.y[data.test_mask]
     test_f1 = f1_score(targets, test_predictions, average='micro')
 
-    wandb.log({'test_accuracy': test_accuracy, 'test_f1': test_f1})
-    logger.info(f'test_accuracy={test_accuracy:.3f}, test_f1={test_f1:.3f}')
-
-    # Compute Dirichlet energies and MAD for specified layers at the end of training
-    compute_dirichlet_energies(gcn_c, data, adj, logger, wandb)
-
-    return test_f1
+    wandb.log({'test_f1': test_f1})
+    logger.info(f'Test F1: {test_f1:.3f}')
 
 
-def sample_subgraph(data, batch_nodes, adj, num_hops):
-    sub_adj = []
-    sub_x = [data.x[batch_nodes]]
-    for _ in range(num_hops):
-        neighbors = get_neighborhoods(batch_nodes, adj)
-        sub_adj.append(neighbors)
-        batch_nodes = neighbors.view(-1)
-        sub_x.append(data.x[batch_nodes])
-    sub_adj = torch.cat(sub_adj, dim=1)
-    sub_x = torch.cat(sub_x, dim=0)
-    return sub_adj, sub_x
 
-
-def evaluate(model, loader, data, args):
-    model.eval()
-    all_predictions = []
-    all_targets = []
-    adj = convert_edge_index_to_adj_sparse(data.edge_index, data.num_nodes)
-    with torch.no_grad():
-        for batch in loader:
-            batch_nodes = batch[0].to(device)
-            sub_adj, sub_x = sample_subgraph(data, batch_nodes, adj, args.sampling_hops)
-            sub_adj = sub_adj.to(device)
-            sub_x = sub_x.to(device)
-
-            logits, _ = model(sub_x, sub_adj)
-            predictions = torch.argmax(logits, dim=1)
-            all_predictions.append(predictions.cpu())
-            all_targets.append(data.y[batch_nodes].cpu())
-    return torch.cat(all_predictions), torch.cat(all_targets)
-
-
-def compute_dirichlet_energies(gcn_c, data, adj, logger, wandb):
+    # Compute Dirichlet energies for specified layers at the end of training
     layer_nums = [2, 4, 8, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
+    #mads = {layer_num: [] for layer_num in layer_nums}
 
+    # move the model to CPU
     gcn_c = gcn_c.cpu()
     x = data.x.cpu()
     adj = adj.cpu()
 
     intermediate_outputs = gcn_c.get_intermediate_outputs(x, adj)
+
+    # get intermediate for val set
+    # check shape of intermediate_outputs
+
+    #intermediate_outputs = [intermediate_output[val_idx].cpu() for intermediate_output in intermediate_outputs]
+
+    # calculate metrics for specified layers for
     for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
         energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj)
         dirichlet_energies[layer_num].append((energy1, energy2))
+        #mads[layer_num].append(mad)
 
     for layer_num in layer_nums:
-        energies = dirichlet_energies[layer_num]
-        avg_energy1 = sum(e[0] for e in energies) / len(energies)
-        avg_energy2 = sum(e[1] for e in energies) / len(energies)
+        avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
         wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
                    f'avg_dirichlet_energy_2_{layer_num}': avg_energy2})
         logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
                     f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}')
+
+
+
+    return test_f1
+
+
 
 
 args = Arguments(explicit_bool=True).parse_args()
