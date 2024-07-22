@@ -88,7 +88,7 @@ def train(args: Arguments):
         acc_loss_c = 0
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch in train_loader:
-                batch_nodes = batch[0].to(device)
+                batch_nodes = batch[0]
                 batch_x = data.x[batch_nodes].to(device)
                 batch_y = data.y[batch_nodes].to(device)
 
