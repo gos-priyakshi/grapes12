@@ -139,9 +139,7 @@ def train(args: Arguments):
                 optimizer_c.zero_grad()
                 output, _ = gcn_c(sub_x, sub_adj)
 
-                # check the devices
-                print(f'output device: {output.device}')
-                print(f'data.y device: {data.y[all_nodes].device}')
+                data.y = data.y.to(device)
                 
                 loss = loss_fn(output, data.y[all_nodes].to(device))
                 loss.backward()
