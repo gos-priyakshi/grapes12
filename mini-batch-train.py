@@ -50,29 +50,35 @@ class Arguments(Tap):
     log_wandb: bool = True
     config_file: str = None
 
-def sample_subgraph(data, batch_nodes, adjacency, num_hops):
-    
+def sample_subgraph(data, batch_nodes, edge_index, num_hops):
     all_nodes = batch_nodes.clone().tolist()
     all_edges = []
 
-    for _ in range(num_hops):
-        # get neighbors of all nodes in the batch
-        neighbors = get_neighborhoods(all_nodes, adjacency)
-        # update batch nodes with the neighbors
-        batch_nodes = torch.unique(neighbors.view(-1))
-        # add the new nodes to the list of all nodes
-        all_nodes += batch_nodes.tolist()
+    adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
+                               data.edge_index),
+                              shape=(data.num_nodes, data.num_nodes)) # NOT the normalized adjacency
 
-        # create edge indices from the neighbors and add them to the list of all edges
+    for _ in range(num_hops):
+        all_nodes_tensor = torch.tensor(all_nodes)
+        neighbors = get_neighborhoods(all_nodes_tensor, adjacency)
+        batch_nodes = torch.unique(neighbors.view(-1))
+        all_nodes += batch_nodes.tolist()
         edges = torch.stack([neighbors[0], neighbors[1]], dim=0)
         all_edges.append(edges)
 
     all_nodes = torch.unique(torch.tensor(all_nodes))
     all_edges = torch.cat(all_edges, dim=1)
     
-    sub_adj = convert_edge_index_to_adj_sparse(all_edges, len(all_nodes))
-    sub_x = data.x[all_nodes]
+     # Create a mapping from node IDs to local indices
+    node_to_idx = {node: idx for idx, node in enumerate(all_nodes.tolist())}
 
+    # Remap edge indices
+    all_edges_remapped = torch.stack([torch.tensor([node_to_idx[node.item()] for node in edge])for edge in all_edges], dim=0)
+
+
+    sub_adj = convert_edge_index_to_adj_sparse(all_edges_remapped, len(all_nodes))
+    sub_x = data.x[all_nodes]
+    
     return sub_adj, sub_x, all_nodes
 
 
@@ -95,7 +101,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
@@ -120,36 +126,33 @@ def train(args: Arguments):
 
     logger.info('Training')
     for epoch in range(1, args.max_epochs + 1):
-        acc_loss_c = 0
+        gcn_c.train()
+        epoch_loss = 0
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch in train_loader:
                 batch_nodes = batch[0]
-                
-                sub_adj, sub_x, all_nodes = sample_subgraph(data, batch_nodes, adjacency, args.sampling_hops)
+                sub_adj, sub_x, all_nodes = sample_subgraph(data, batch_nodes, data.edge_index, args.sampling_hops)
 
                 sub_adj = sub_adj.to(device)
                 sub_x = sub_x.to(device)
-
-                logits, _ = gcn_c(sub_x, sub_adj)
-                loss_c = loss_fn(logits, data.y[batch_nodes].to(device))
-
+                all_nodes = all_nodes.to(device)
+                
                 optimizer_c.zero_grad()
-                loss_c.backward()
+                output, _ = gcn_c(sub_x, sub_adj)
+                
+                loss = loss_fn(output, data.y[all_nodes].to(device))
+                loss.backward()
                 optimizer_c.step()
-
-                acc_loss_c += loss_c.item()
-                bar.set_postfix({'loss_c': loss_c.item()})
-                bar.update()
+                
+                epoch_loss += loss.item()
+                bar.set_postfix(loss=epoch_loss / (batch[0].size(0)))
+                bar.update(1)
 
         bar.close()
-        wandb.log({'loss_c': acc_loss_c/len(train_loader)})
 
         if (epoch + 1) % args.eval_frequency == 0:
 
             # full batch evaluation
-            
-            adj = adj.to.cpu()
-
             logits_total, _ = gcn_c(data.x, adj)
             val_predictions = torch.argmax(logits_total, dim=1)[data.val_mask].cpu()
             targets = data.y[data.val_mask]

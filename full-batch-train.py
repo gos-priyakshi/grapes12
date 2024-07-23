@@ -26,7 +26,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class Arguments(Tap):
     dataset: str = 'cora'
 
-    sampling_hops: int = 2
+    sampling_hops: int = 129
     num_samples: int = 16
     lr_gc: float = 1e-3
     use_indicators: bool = True
@@ -45,7 +45,7 @@ class Arguments(Tap):
     eval_on_cpu: bool = False
     eval_full_batch: bool = False
 
-    runs: int = 10
+    runs: int = 1
     notes: str = None
     log_wandb: bool = True
     config_file: str = None
@@ -70,7 +70,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 

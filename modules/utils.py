@@ -121,6 +121,10 @@ def convert_edge_index_to_adj_sparse(edge_index: Tensor, num_nodes: int): ### re
     # use torch.sparse_coo_tensor
     values = torch.ones(edge_index.size(1))
 
+    #debugging to check size of edge_index and num_nodes
+    print(f"Edge index size: {edge_index.size()}")
+    print(f"Num nodes: {num_nodes}")
+
     # ensure edge_index and values are on the same device
     values = values.to(edge_index.device)
 
