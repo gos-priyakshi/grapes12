@@ -1,6 +1,6 @@
 --batch_size 256
 --dataset "cora"
---eval_frequency 2
+--eval_frequency 5
 --eval_full_batch true
 --eval_on_cpu true
 --hidden_dim 256

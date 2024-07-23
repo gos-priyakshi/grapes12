@@ -92,10 +92,13 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 1 + [num_classes], dropout=args.dropout).to(device)
-        # GCN model for GFlotNet sampling
-        gcn_gf = GCN(data.num_features + num_indicators,
-                      hidden_dims=[args.hidden_dim] * 1 + [1]).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
+    elif args.model_type == 'resgcn':
+        gcn_c = ResGCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
+    elif args.model_type == 'gcn2':
+        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
+    # GCN model for GFlotNet sampling
+    gcn_gf = GCN(data.num_features + num_indicators, hidden_dims=[args.hidden_dim] * 1 + [1]).to(device)
 
     log_z = torch.tensor(args.log_z_init, requires_grad=True)
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
