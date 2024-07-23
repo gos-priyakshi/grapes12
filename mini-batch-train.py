@@ -3,7 +3,6 @@ from cgi import test
 from math import log
 import os
 
-from networkx import neighbors
 
 import numpy as np
 import scipy.sparse as sp
