@@ -157,8 +157,8 @@ def train(args: Arguments):
             data.x = data.x.to(device)
             adj = adj.to(device)
             logits_total, _ = gcn_c(data.x, adj)
-            val_predictions = torch.argmax(logits_total, dim=1)[data.val_mask].cpu()
-            targets = data.y[data.val_mask]
+            val_predictions = torch.argmax(logits_total, dim=1)[data.val_mask].cpu().numpy()
+            targets = data.y[data.val_mask].cpu().numpy()
             f1 = f1_score(targets, val_predictions, average='micro')
 
             log_dict = {'epoch': epoch,
