@@ -154,6 +154,8 @@ def train(args: Arguments):
         if (epoch + 1) % args.eval_frequency == 0:
 
             # full batch evaluation
+            data.x = data.x.to(device)
+            adj = adj.to(device)
             logits_total, _ = gcn_c(data.x, adj)
             val_predictions = torch.argmax(logits_total, dim=1)[data.val_mask].cpu()
             targets = data.y[data.val_mask]
