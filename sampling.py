@@ -366,7 +366,7 @@ def train(args: Arguments):
     
     layer_nums = [2, 4, 8, -1]
 
-    dirichlet_energies = energy_sampling(args, gcn_c, gcn_gf, data, layer_nums, adjacency, node_map, num_indicators, device)
+    dirichlet_energies = energy_sampling(args, gcn_gf, gcn_c, val_loader, node_map, data, adjacency, num_indicators, layer_nums=layer_nums, device=device)
     #dirichlet_energies = energy_full_batch(args, gcn_c, data, layer_nums)
 
 

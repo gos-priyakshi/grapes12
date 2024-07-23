@@ -7,7 +7,7 @@ from modules.utils import (convert_edge_index_to_adj_sparse, normalize_laplacian
 
 from modules.utils import TensorMap, get_logger, get_neighborhoods, slice_adjacency, sample_neighborhoods_from_probs
 
-def energy_sampling(args, gcn_gf, gcn_c, val_loader, node_map, mask, data, adjacency, num_indicators, layer_nums, device):
+def energy_sampling(args, gcn_gf, gcn_c, val_loader, node_map, data, adjacency, num_indicators, layer_nums, device):
 
     #layer_nums = [2, 4, 8, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
