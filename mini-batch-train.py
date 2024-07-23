@@ -169,8 +169,8 @@ def train(args: Arguments):
     # test
     adj = adj.to(device)
     logits_total, _ = gcn_c(data.x, adj)
-    test_predictions = torch.argmax(logits_total, dim=1)[data.test_mask].cpu()
-    targets = data.y[data.test_mask]
+    test_predictions = torch.argmax(logits_total, dim=1)[data.test_mask].cpu().numpy()
+    targets = data.y[data.test_mask].cpu().numpy()
     test_f1 = f1_score(targets, test_predictions, average='micro')
 
     wandb.log({'test_f1': test_f1})
