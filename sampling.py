@@ -1,4 +1,5 @@
 import os
+from pydoc import cli
 
 import numpy as np
 import scipy.sparse as sp
@@ -271,6 +272,10 @@ def train(args: Arguments):
                 mem_allocations_point3.append(torch.cuda.memory_allocated() / (1024 * 1024))
 
                 loss_c.backward()
+
+                # add gradient clipping
+                clip_value = 100
+                torch.nn.utils.clip_grad_norm_(gcn_c.parameters(), clip_value)
 
                 optimizer_c.step()
 
