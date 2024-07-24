@@ -274,8 +274,8 @@ def train(args: Arguments):
                 loss_c.backward()
 
                 # add gradient clipping
-                clip_value = 0.5
-                torch.nn.utils.clip_grad_norm_(gcn_c.parameters(), clip_value)
+                #clip_value = 0.5
+                #torch.nn.utils.clip_grad_norm_(gcn_c.parameters(), clip_value)
 
                 optimizer_c.step()
 
@@ -290,7 +290,7 @@ def train(args: Arguments):
 
                 loss_gfn.backward()
 
-                torch.nn.utils.clip_grad_norm_(gcn_gf.parameters(), clip_value)
+                #torch.nn.utils.clip_grad_norm_(gcn_gf.parameters(), clip_value)
 
                 optimizer_gf.step()
 
