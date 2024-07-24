@@ -28,6 +28,10 @@ class GCNConv(nn.Module):
         #    laplacian = laplacian.to_sparse()
         #print(f"GCNConv: adjacency shape: {adjacency.shape}, support shape: {support.shape}")
         output = torch.sparse.mm(adjacency, support)
+
+        if torch.isnan(output).any():
+            raise ValueError("NaNs detected in GCNConv output.")
+        
         return output
 
 
