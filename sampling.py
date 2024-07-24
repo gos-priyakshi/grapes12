@@ -284,10 +284,13 @@ def train(args: Arguments):
 
                 loss_gfn = (log_z + torch.sum(torch.cat(log_probs, dim=0)) + args.loss_coef*cost_gfn)**2
 
+
                 mem_allocations_point1.append(torch.cuda.max_memory_allocated() / (1024 * 1024))
                 mem_allocations_point2.append(gcn_mem_alloc)
 
                 loss_gfn.backward()
+
+                torch.nn.utils.clip_grad_norm_(gcn_gf.parameters(), clip_value)
 
                 optimizer_gf.step()
 
