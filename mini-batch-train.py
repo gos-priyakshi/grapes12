@@ -3,6 +3,7 @@ from cgi import test
 from math import log
 from operator import ne
 import os
+from platform import node
 from re import sub
 
 from networkx import neighbors
@@ -115,10 +116,6 @@ def train(args: Arguments):
                 all_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
                 all_nodes_mask[target_nodes] = True
 
-    
-                indicator_features = torch.zeros((data.num_nodes, args.sampling_hops + 1), dtype=torch.float)
-                indicator_features[target_nodes, -1] = 1.0
-
                 global_edge_indices = []
 
                 for hop in range(args.sampling_hops):
@@ -133,38 +130,27 @@ def train(args: Arguments):
 
                     batch_nodes = node_map.values[batch_nodes_mask]
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
-                    indicator_features[neighbor_nodes, hop] = 1.0
                     
                     node_map.update(batch_nodes)
-                    local_neighborhoods = node_map.map(neighborhoods).to(device)
+                    all_nodes_mask[neighbor_nodes] = True
 
-                    num_nodes = len(torch.unique(local_neighborhoods))
-                    local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes)
+                    batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
 
-                    if args.use_indicators:
-                        x = torch.cat([data.x[batch_nodes],
-                                       indicator_features[batch_nodes]],
-                                      dim=1).to(device)
-                    else:
-                        x = data.x[batch_nodes].to(device)
+                    k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
 
-                    k_hop_edges = slice_adjacency(adjacency,
-                                                  rows=previous_nodes,
-                                                  cols=batch_nodes)
                     global_edge_indices.append(k_hop_edges)
 
                     previous_nodes = batch_nodes.clone()
 
                 all_nodes = node_map.values[all_nodes_mask]
                 node_map.update(all_nodes)
-                edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+                local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
 
+                global_adj_list = [convert_edge_index_to_adj_sparse(local_edge_index, len(all_nodes)) for local_edge_index in local_edge_indices]
+            
                 sub_x = data.x[all_nodes].to(device)
 
-                num_nodes = len(torch.unique(all_nodes))
-                adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
-
-                logits, _ = gcn_c(sub_x, adj_matrices)
+                logits, _ = gcn_c(sub_x, global_adj_list)
 
                 local_target_ids = node_map.map(target_nodes).to(device)
                 loss = loss_fn(logits[local_target_ids], data.y[target_nodes].to(device))
