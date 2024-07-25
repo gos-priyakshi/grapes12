@@ -1,7 +1,11 @@
 import argparse
 from cgi import test
 from math import log
+from operator import ne
 import os
+from re import sub
+
+from networkx import neighbors
 
 
 import numpy as np
@@ -49,37 +53,6 @@ class Arguments(Tap):
     log_wandb: bool = True
     config_file: str = None
 
-def sample_subgraph(data, batch_nodes, edge_index, num_hops):
-    all_nodes = batch_nodes.clone().tolist()
-    all_edges = []
-
-    adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
-                               data.edge_index),
-                              shape=(data.num_nodes, data.num_nodes)) # NOT the normalized adjacency
-
-    for _ in range(num_hops):
-        all_nodes_tensor = torch.tensor(all_nodes)
-        neighbors = get_neighborhoods(all_nodes_tensor, adjacency)
-        batch_nodes = torch.unique(neighbors.view(-1))
-        all_nodes += batch_nodes.tolist()
-        edges = torch.stack([neighbors[0], neighbors[1]], dim=0)
-        all_edges.append(edges)
-
-    all_nodes = torch.unique(torch.tensor(all_nodes))
-    all_edges = torch.cat(all_edges, dim=1)
-    
-     # Create a mapping from node IDs to local indices
-    node_to_idx = {node: idx for idx, node in enumerate(all_nodes.tolist())}
-
-    # Remap edge indices
-    all_edges_remapped = torch.stack([torch.tensor([node_to_idx[node.item()] for node in edge])for edge in all_edges], dim=0)
-
-
-    sub_adj = convert_edge_index_to_adj_sparse(all_edges_remapped, len(all_nodes))
-    sub_x = data.x[all_nodes]
-    
-    return sub_adj, sub_x, all_nodes
-
 
 def train(args: Arguments):
     wandb.init(project='grapes',
@@ -126,28 +99,84 @@ def train(args: Arguments):
     logger.info('Training')
     for epoch in range(1, args.max_epochs + 1):
         gcn_c.train()
-        epoch_loss = 0
+        total_loss = 0
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
-            for batch in train_loader:
-                batch_nodes = batch[0]
-                sub_adj, sub_x, all_nodes = sample_subgraph(data, batch_nodes, data.edge_index, args.sampling_hops)
-
-                sub_adj = sub_adj.to(device)
-                sub_x = sub_x.to(device)
-                all_nodes = all_nodes.to(device)
+            for batch_id, batch in enumerate(train_loader):
                 
                 optimizer_c.zero_grad()
-                output, _ = gcn_c(sub_x, sub_adj)
 
-                data.y = data.y.to(device)
-                
-                loss = loss_fn(output, data.y[all_nodes].to(device))
+                # get the target nodes
+                target_nodes = batch[0]
+
+                # get the previous nodes
+                previous_nodes = target_nodes.clone()
+                node_map.update(target_nodes)
+
+                all_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                all_nodes_mask[target_nodes] = True
+
+    
+                indicator_features = torch.zeros((data.num_nodes, args.sampling_hops + 1), dtype=torch.float)
+                indicator_features[target_nodes, -1] = 1.0
+
+                global_edge_indices = []
+
+                for hop in range(args.sampling_hops):
+                    neighborhoods = get_neighborhoods(previous_nodes, adjacency)
+
+                    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                    
+                    prev_nodes_mask[previous_nodes] = True
+                    batch_nodes_mask[neighborhoods.view(-1)] = True
+                    neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
+
+                    batch_nodes = node_map.values[batch_nodes_mask]
+                    neighbor_nodes = node_map.values[neighbor_nodes_mask]
+                    indicator_features[neighbor_nodes, hop] = 1.0
+                    
+                    node_map.update(batch_nodes)
+                    local_neighborhoods = node_map.map(neighborhoods).to(device)
+
+                    num_nodes = len(torch.unique(local_neighborhoods))
+                    local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes)
+
+                    if args.use_indicators:
+                        x = torch.cat([data.x[batch_nodes],
+                                       indicator_features[batch_nodes]],
+                                      dim=1).to(device)
+                    else:
+                        x = data.x[batch_nodes].to(device)
+
+                    k_hop_edges = slice_adjacency(adjacency,
+                                                  rows=previous_nodes,
+                                                  cols=batch_nodes)
+                    global_edge_indices.append(k_hop_edges)
+
+                    previous_nodes = batch_nodes.clone()
+
+                all_nodes = node_map.values[all_nodes_mask]
+                node_map.update(all_nodes)
+                edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+
+                sub_x = data.x[all_nodes].to(device)
+
+                num_nodes = len(torch.unique(all_nodes))
+                adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
+
+                logits, _ = gcn_c(sub_x, adj_matrices)
+
+                local_target_ids = node_map.map(target_nodes).to(device)
+                loss = loss_fn(logits[local_target_ids], data.y[target_nodes].to(device))
+
+
+                total_loss += loss.item()              
+
                 loss.backward()
                 optimizer_c.step()
-                
-                epoch_loss += loss.item()
-                bar.set_postfix(loss=epoch_loss / (batch[0].size(0)))
-                bar.update(1)
+
+                bar.set_postfix({'loss': total_loss / (batch_id + 1)})
+                bar.update()
 
         bar.close()
 
