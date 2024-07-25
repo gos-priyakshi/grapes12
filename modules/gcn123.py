@@ -254,7 +254,7 @@ class GCNConvII(nn.Module):
     
 
 class GCNII(nn.Module):
-    def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0., lamda: float = 0.5, alpha: float = 0.1, variant: bool = False):
+    def __init__(self, in_features: int, hidden_dims: List[int], dropout: float = 0.5, lamda: float = 0.5, alpha: float = 0.1, variant: bool = False):
         super(GCNII, self).__init__()
         self.dropout = dropout
         self.lamda = lamda

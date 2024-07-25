@@ -61,6 +61,9 @@ def evaluate(gcn_c: torch.nn.Module,
 
         logits_total, _ = gcn_c(x, edge_indices)
 
+        # calculate metrics 
+        e1, e2 = gcn_c.calculate_metrics(logits_total, adj_mat)
+
         #logits_total, _ = gcn_c(x, edge_index)
         if data.y[mask].dim() == 1:
             predictions = torch.argmax(logits_total, dim=1)[mask].cpu()

@@ -143,4 +143,43 @@ def energy_full_batch(args, gcn_c, data, layer_nums):
 
     return dirichlet_energies
 
-    
+ 
+
+def energy_full(args, gcn_c, data, layer_nums):
+
+    #layer_nums = [2, 4, 8, -1]
+    dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
+    #mads = {layer_num: [] for layer_num in layer_nums}
+
+    # full batch message passing for evaluation
+    edge_index = data.edge_index
+    x = data.x
+
+    # eval on cpu
+    x = x.cpu()
+    edge_index = edge_index.cpu()
+    gcn_c = gcn_c.cpu()
+
+    if isinstance(edge_index, list):
+        edge_indices = edge_index
+    else:
+        edge_indices = [edge_index for _ in range(args.sampling_hops)]
+
+    # convert edge indices to adjacency matrices
+
+    # get intermediate outputs
+    intermediate_outputs = gcn_c.get_intermediate_outputs(x, edge_indices)
+
+    # calculate metrics for specified layers
+    for layer_num, intermediate_output in zip(layer_nums, intermediate_outputs):
+        energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj_mat)
+        dirichlet_energies[layer_num].append((energy1, energy2))
+        #mads[layer_num].append(mad)
+
+
+    #for layer_num in layer_nums:
+    #    avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+    #    avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
+
+    return dirichlet_energies
