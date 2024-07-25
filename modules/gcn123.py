@@ -277,10 +277,10 @@ class GCNII(nn.Module):
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
         # Initial linear transformation
-        print(f"GCNII: x shape: {x.shape}")
+        #print(f"GCNII: x shape: {x.shape}")
         h0 = self.fc_in(x)
         x = h0
-        print(f"GCNII: h0 shape: {h0.shape}")
+        #print(f"GCNII: h0 shape: {h0.shape}")
         # iterate over the GCN layers
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
