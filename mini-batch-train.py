@@ -6,7 +6,6 @@ import os
 from platform import node
 from re import sub
 
-from networkx import neighbors
 
 
 import numpy as np
