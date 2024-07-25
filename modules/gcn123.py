@@ -234,7 +234,7 @@ class GCNConvII(nn.Module):
 
         # calculate theta based on lambda and l
         theta = math.log(lamda/l + 1)
-        print(f"shapes: input: {input.shape}, adj: {adj.shape}, h0: {h0.shape}, weight: {self.weight.shape}")
+        #print(f"shapes: input: {input.shape}, adj: {adj.shape}, h0: {h0.shape}, weight: {self.weight.shape}")
         hi = torch.spmm(adj, input)
         if self.variant:
             # Variant case: concatenate hi and h0 along dimension 1
@@ -245,7 +245,7 @@ class GCNConvII(nn.Module):
             support = (1-alpha)*hi + alpha*h0
             r = support
         #check the shapes of support and weight
-        print(f"GCNConvII: support shape: {support.shape}, weight shape: {self.weight.shape}")
+        #print(f"GCNConvII: support shape: {support.shape}, weight shape: {self.weight.shape}")
         output = theta * torch.mm(support, self.weight) + (1 - theta)*r
         if self.residual:
             # Add residual connection if enabled
