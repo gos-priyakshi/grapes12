@@ -7,7 +7,7 @@
 --log_wandb true
 --log_z_init 0.0
 --loss_coef 283204.03845571214
---lr_gc 0.000006258215237588172
+--lr_gc 0.006258215237588172
 --lr_gf 0.00000880823646921125
 --max_epochs 100
 --model_type "gcn"
