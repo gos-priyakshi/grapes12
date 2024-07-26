@@ -154,13 +154,18 @@ def train(args: Arguments):
                 local_target_ids = node_map.map(target_nodes).to(device)
                 loss = loss_fn(logits[local_target_ids], data.y[target_nodes].to(device))
 
+                print(loss.item())
 
-                total_loss += loss.item()              
+                batch_loss = loss.item()
+            
+                total_loss += batch_loss / len(train_loader)             
 
                 loss.backward()
                 optimizer_c.step()
 
-                bar.set_postfix({'loss': total_loss / (batch_id + 1)})
+                bar.set_postfix({
+                    'batch_loss': batch_loss
+                })
                 bar.update()
 
         bar.close()
@@ -176,7 +181,8 @@ def train(args: Arguments):
             f1 = f1_score(targets, val_predictions, average='micro')
 
             log_dict = {'epoch': epoch,
-                        'valid_f1': f1}
+                        'valid_f1': f1,
+                        'train_loss': total_loss}
             
             wandb.log(log_dict)
 
