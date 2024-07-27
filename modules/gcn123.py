@@ -362,7 +362,7 @@ class GAT(nn.Module):
 
         return logits, memory_alloc
 
-    def intermediate_outputs(self,
+    def get_intermediate_outputs(self,
                              x: torch.Tensor,
                              edge_index: Union[torch.Tensor, list[torch.Tensor]],
                              ) -> List[torch.Tensor]:
