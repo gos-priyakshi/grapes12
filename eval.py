@@ -5,7 +5,7 @@ import torch_geometric
 from sklearn.metrics import accuracy_score, f1_score
 from torch.distributions import Bernoulli
 
-from modules.utils import TensorMap, get_logger, get_neighborhoods, slice_adjacency
+from modules.utils import TensorMap, get_logger, get_neighborhoods, slice_adjacency, convert_edge_index_to_adj_sparse
 
 
 @torch.inference_mode()
@@ -60,9 +60,11 @@ def evaluate(gcn_c: torch.nn.Module,
             edge_indices = [edge_index for _ in range(args.sampling_hops)]
 
         logits_total, _ = gcn_c(x, edge_indices)
+        num_nodes = data.num_nodes
+        adj_mat = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
 
         # calculate metrics 
-        e1, e2 = gcn_c.calculate_metrics(logits_total, edge_indices)
+        e1, e2 = gcn_c.calculate_metrics(logits_total, adj_mat)
 
         #logits_total, _ = gcn_c(x, edge_index)
         if data.y[mask].dim() == 1:
