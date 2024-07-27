@@ -101,20 +101,16 @@ def train(args: Arguments):
     batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
 
     for epoch in range(1, args.max_epochs + 1):
-        gcn_c.train()
         total_loss = 0
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch_id, batch in enumerate(train_loader):
-                
-                optimizer_c.zero_grad()
+            
 
                 # get the target nodes
                 target_nodes = batch[0]
 
                 # get the previous nodes
                 previous_nodes = target_nodes.clone()
-                node_map.update(target_nodes)
-
                 all_nodes_mask = torch.zeros_like(prev_nodes_mask)
                 all_nodes_mask[target_nodes] = True
 
@@ -136,7 +132,7 @@ def train(args: Arguments):
                     node_map.update(batch_nodes)
                     all_nodes_mask[neighbor_nodes] = True
 
-                    # batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
+                    batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
 
                     k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
 
@@ -154,13 +150,6 @@ def train(args: Arguments):
                 #check data.x and sub_x shape
                 print(f"data.x shape: {data.x.shape}")
                 print(f"sub_x shape: {sub_x.shape}")
-                print(f"target_nodes: {target_nodes}")
-                print(f"previous_nodes: {previous_nodes}")
-                print(f"all_nodes: {all_nodes}")
-                print(f"all_nodes_mask sum: {all_nodes_mask.sum()}")
-                print(f"neighbor_nodes: {neighbor_nodes}")
-                print(f"global_edge_indices: {global_edge_indices}")
-                print(f"local_edge_indices: {local_edge_indices}")
 
                 logits, _ = gcn_c(sub_x, global_adj_list)
 
