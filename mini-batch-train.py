@@ -108,7 +108,7 @@ def train(args: Arguments):
                 print(len(batch_nodes))
             
                 # get the adjacency matrix for the batch
-                edge_ind = slice_adjacency(adjacency, batch_nodes)
+                edge_ind = slice_adjacency(adjacency, rows=batch_nodes, cols=batch_nodes)
                 edge_ind = remap_edge_index(edge_ind, batch_nodes)
                 local_adj = convert_edge_index_to_adj_sparse(edge_ind, len(batch_nodes)).to(device)
 
