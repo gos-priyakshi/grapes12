@@ -65,7 +65,6 @@ def train(args: Arguments):
     path = os.path.join(os.getcwd(), 'data', args.dataset)
     data, num_features, num_classes = get_data(root=path, name=args.dataset)
 
-    node_map = TensorMap(size=data.num_nodes)
 
     if args.use_indicators:
         num_indicators = args.sampling_hops + 1
@@ -97,8 +96,6 @@ def train(args: Arguments):
                               shape=(data.num_nodes, data.num_nodes))
 
     logger.info('Training')
-    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
 
     for epoch in range(1, args.max_epochs + 1):
         total_loss = 0
@@ -107,71 +104,18 @@ def train(args: Arguments):
             
 
                 # get the target nodes
-                target_nodes = batch[0]
+                batch_nodes = batch[0]
 
-                print(f"Epoch {epoch}, Batch {batch_id}: target_nodes size: {target_nodes.size()}")
+                # get the adjacency matrix for the batch
+                edge_ind = slice_adjacency(adjacency, rows=batch_nodes, cols=batch_nodes)
+                local_adj = convert_edge_index_to_adj_sparse(edge_ind, len(batch_nodes))
 
+                # get the features for the batch
+                sub_x = data.x[batch_nodes].to(device)
 
-                # get the previous nodes
-                previous_nodes = target_nodes.clone()
-                all_nodes_mask = torch.zeros_like(prev_nodes_mask)
-                all_nodes_mask[target_nodes] = True
+                logits, _ = gcn_c(sub_x, local_adj)
 
-                global_edge_indices = []
-
-                for hop in range(args.sampling_hops):
-                    neighborhoods = get_neighborhoods(previous_nodes, adjacency)
-                    print(f"Hop {hop}: neighborhoods size: {neighborhoods.size()}")
-
-                    prev_nodes_mask.zero_()
-                    batch_nodes_mask.zero_()
-
-                    prev_nodes_mask[previous_nodes] = True
-                    batch_nodes_mask[neighborhoods.view(-1)] = True
-                    neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
-
-                    batch_nodes = node_map.values[batch_nodes_mask]
-                    neighbor_nodes = node_map.values[neighbor_nodes_mask]
-                    
-                    print(f"Hop {hop}: batch_nodes size: {batch_nodes.size()}")
-                    print(f"Hop {hop}: neighbor_nodes size: {neighbor_nodes.size()}")
-                    print(f"Hop {hop}: all_nodes_mask size: {all_nodes_mask.size()}")   
-        
-
-                    node_map.update(batch_nodes)
-                    all_nodes_mask[neighbor_nodes] = True
-
-                    batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
-
-                    k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
-
-                    global_edge_indices.append(k_hop_edges)
-
-                    previous_nodes = batch_nodes.clone()
-
-                all_nodes = node_map.values[all_nodes_mask]
-                print(f"all_nodes size: {all_nodes.size()}")
-                node_map.update(all_nodes)
-                local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
-
-                global_adj_list = [convert_edge_index_to_adj_sparse(local_edge_index, len(all_nodes)) for local_edge_index in local_edge_indices]
-                print(f"global_edge_indices length: {len(global_edge_indices)}")
-                for i, edge_index in enumerate(global_edge_indices):
-                    print(f"global_edge_indices[{i}] size: {edge_index.size()}")
-
-                print(f"global_adj_list length: {len(global_adj_list)}")
-                for i, adj in enumerate(global_adj_list):
-                    print(f"global_adj_list[{i}] size: {adj.size()}")
-
-                sub_x = data.x[all_nodes].to(device)
-                #check data.x and sub_x shape
-                print(f"data.x shape: {data.x.shape}")
-                print(f"sub_x shape: {sub_x.shape}")
-
-                logits, _ = gcn_c(sub_x, global_adj_list)
-
-                local_target_ids = node_map.map(target_nodes).to(device)
-                loss = loss_fn(logits[local_target_ids], data.y[target_nodes].to(device))
+                loss = loss_fn(logits, data.y[batch_nodes].to(device))
                 if torch.isnan(loss):
                     print("NaN loss detected")
                     continue
