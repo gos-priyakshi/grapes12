@@ -97,6 +97,9 @@ def train(args: Arguments):
                               shape=(data.num_nodes, data.num_nodes))
 
     logger.info('Training')
+    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+
     for epoch in range(1, args.max_epochs + 1):
         gcn_c.train()
         total_loss = 0
@@ -112,7 +115,7 @@ def train(args: Arguments):
                 previous_nodes = target_nodes.clone()
                 node_map.update(target_nodes)
 
-                all_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                all_nodes_mask = torch.zeros_like(prev_nodes_mask)
                 all_nodes_mask[target_nodes] = True
 
                 global_edge_indices = []
@@ -120,9 +123,9 @@ def train(args: Arguments):
                 for hop in range(args.sampling_hops):
                     neighborhoods = get_neighborhoods(previous_nodes, adjacency)
 
-                    prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-                    batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-                    
+                    prev_nodes_mask.zero_()
+                    batch_nodes_mask.zero_()
+
                     prev_nodes_mask[previous_nodes] = True
                     batch_nodes_mask[neighborhoods.view(-1)] = True
                     neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
@@ -133,13 +136,13 @@ def train(args: Arguments):
                     node_map.update(batch_nodes)
                     all_nodes_mask[neighbor_nodes] = True
 
-                    #batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
+                    batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
 
                     k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
 
                     global_edge_indices.append(k_hop_edges)
 
-                    previous_nodes = neighbor_nodes.clone()
+                    previous_nodes = batch_nodes.clone()
 
                 all_nodes = node_map.values[all_nodes_mask]
                 node_map.update(all_nodes)
