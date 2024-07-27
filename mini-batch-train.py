@@ -149,9 +149,15 @@ def train(args: Arguments):
             
                 sub_x = data.x[all_nodes].to(device)
                 #check data.x and sub_x shape
-                print(data.x.shape)
-                print(sub_x.shape)
-
+                print(f"data.x shape: {data.x.shape}")
+                print(f"sub_x shape: {sub_x.shape}")
+                print(f"target_nodes: {target_nodes}")
+                print(f"previous_nodes: {previous_nodes}")
+                print(f"all_nodes: {all_nodes}")
+                print(f"all_nodes_mask sum: {all_nodes_mask.sum()}")
+                print(f"neighbor_nodes: {neighbor_nodes}")
+                print(f"global_edge_indices: {global_edge_indices}")
+                print(f"local_edge_indices: {local_edge_indices}")
 
                 logits, _ = gcn_c(sub_x, global_adj_list)
 
