@@ -23,7 +23,7 @@ from tqdm import tqdm
 from modules.data import get_data, get_ppi
 from modules.gcn123 import GCN, ResGCN, GCNII
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
-                           sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse)
+                           sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse, remap_edge_index)
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -101,16 +101,17 @@ def train(args: Arguments):
         total_loss = 0
         with tqdm(total=len(train_loader), desc=f'Epoch {epoch}') as bar:
             for batch_id, batch in enumerate(train_loader):
-            
+                optimizer_c.zero_grad()
 
                 # get the target nodes
                 batch_nodes = batch[0]
                 print(len(batch_nodes))
-                print(batch_nodes)
-
+            
                 # get the adjacency matrix for the batch
-                edge_ind = slice_adjacency(adjacency, rows=batch_nodes, cols=batch_nodes)
-                local_adj = convert_edge_index_to_adj_sparse(edge_ind, len(batch_nodes))
+                edge_ind = slice_adjacency(adjacency, batch_nodes)
+                edge_ind = remap_edge_index(edge_ind, batch_nodes)
+                local_adj = convert_edge_index_to_adj_sparse(edge_ind, len(batch_nodes)).to(device)
+
 
                 # get the features for the batch
                 sub_x = data.x[batch_nodes].to(device)

@@ -415,3 +415,9 @@ def memory_usage():
     process = psutil.Process(os.getpid())
     return process.memory_info().rss / (1024**2)  # Convert bytes to MB
 
+def remap_edge_index(edge_index, batch_nodes):
+    node_map = {node.item(): i for i, node in enumerate(batch_nodes)}
+    remapped_edge_index = torch.stack([torch.tensor([node_map[i.item()] for i in edge_index[0]]),
+                                       torch.tensor([node_map[i.item()] for i in edge_index[1]])], dim=0)
+    return remapped_edge_index
+
