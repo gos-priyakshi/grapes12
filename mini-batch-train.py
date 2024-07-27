@@ -133,13 +133,13 @@ def train(args: Arguments):
                     node_map.update(batch_nodes)
                     all_nodes_mask[neighbor_nodes] = True
 
-                    batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
+                    #batch_nodes = torch.cat([target_nodes, neighbor_nodes], dim=0)
 
                     k_hop_edges = slice_adjacency(adjacency, rows=previous_nodes, cols=batch_nodes)
 
                     global_edge_indices.append(k_hop_edges)
 
-                    previous_nodes = batch_nodes.clone()
+                    previous_nodes = neighbor_nodes.clone()
 
                 all_nodes = node_map.values[all_nodes_mask]
                 node_map.update(all_nodes)
