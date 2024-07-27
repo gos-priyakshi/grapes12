@@ -8,7 +8,7 @@
 --log_z_init 0.0
 --loss_coef 142972.37308197955
 --lr_gc 2.2337277752387176e-06
---lr_gf 0.000064830954223264
+--lr_gf 0.00000064830954223264
 --max_epochs 100
 --model_type "gcn"
 --num_samples 256
