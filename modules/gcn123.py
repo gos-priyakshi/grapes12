@@ -16,6 +16,9 @@ class GCNConv(nn.Module):
 
 
     def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
+        # Normalize input data
+        x = (x - x.mean()) / x.std()
+        
         assert not torch.isnan(x).any(), "NaNs detected in input data to GCNConv."
         assert not torch.isinf(x).any(), "Inf values detected in input data to GCNConv."
         assert not torch.isinf(self.weight).any(), "Inf values detected in GCNConv weights."
