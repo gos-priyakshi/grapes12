@@ -166,6 +166,8 @@ def energy_full(args, gcn_c, data, layer_nums):
         edge_indices = [edge_index for _ in range(args.sampling_hops)]
 
     # convert edge indices to adjacency matrices
+    num_nodes = data.num_nodes
+    adj_mat = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
 
     # get intermediate outputs
     intermediate_outputs = gcn_c.get_intermediate_outputs(x, edge_indices)
@@ -175,11 +177,5 @@ def energy_full(args, gcn_c, data, layer_nums):
         energy1, energy2 = gcn_c.calculate_metrics(intermediate_output, adj_mat)
         dirichlet_energies[layer_num].append((energy1, energy2))
         #mads[layer_num].append(mad)
-
-
-    #for layer_num in layer_nums:
-    #    avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
-    #    avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
-        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
 
     return dirichlet_energies
