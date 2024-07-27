@@ -18,7 +18,7 @@ from modules.data import get_data
 from modules.gcn123 import GCN, ResGCN, GCNII, GAT, GATv2
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse, normalize_laplacian)
-from energy import energy_samplinf, energy_full
+from energy import energy_sampling, energy_full
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
