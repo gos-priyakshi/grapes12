@@ -105,6 +105,8 @@ def train(args: Arguments):
 
                 # get the target nodes
                 batch_nodes = batch[0]
+                print(len(batch_nodes))
+                print(batch_nodes)
 
                 # get the adjacency matrix for the batch
                 edge_ind = slice_adjacency(adjacency, rows=batch_nodes, cols=batch_nodes)
