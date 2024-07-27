@@ -109,6 +109,9 @@ def train(args: Arguments):
                 # get the target nodes
                 target_nodes = batch[0]
 
+                print(f"Epoch {epoch}, Batch {batch_id}: target_nodes size: {target_nodes.size()}")
+
+
                 # get the previous nodes
                 previous_nodes = target_nodes.clone()
                 all_nodes_mask = torch.zeros_like(prev_nodes_mask)
@@ -118,6 +121,7 @@ def train(args: Arguments):
 
                 for hop in range(args.sampling_hops):
                     neighborhoods = get_neighborhoods(previous_nodes, adjacency)
+                    print(f"Hop {hop}: neighborhoods size: {neighborhoods.size()}")
 
                     prev_nodes_mask.zero_()
                     batch_nodes_mask.zero_()
@@ -129,6 +133,11 @@ def train(args: Arguments):
                     batch_nodes = node_map.values[batch_nodes_mask]
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
                     
+                    print(f"Hop {hop}: batch_nodes size: {batch_nodes.size()}")
+                    print(f"Hop {hop}: neighbor_nodes size: {neighbor_nodes.size()}")
+                    print(f"Hop {hop}: all_nodes_mask size: {all_nodes_mask.size()}")   
+        
+
                     node_map.update(batch_nodes)
                     all_nodes_mask[neighbor_nodes] = True
 
@@ -141,11 +150,19 @@ def train(args: Arguments):
                     previous_nodes = batch_nodes.clone()
 
                 all_nodes = node_map.values[all_nodes_mask]
+                print(f"all_nodes size: {all_nodes.size()}")
                 node_map.update(all_nodes)
                 local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
 
                 global_adj_list = [convert_edge_index_to_adj_sparse(local_edge_index, len(all_nodes)) for local_edge_index in local_edge_indices]
-            
+                print(f"global_edge_indices length: {len(global_edge_indices)}")
+                for i, edge_index in enumerate(global_edge_indices):
+                    print(f"global_edge_indices[{i}] size: {edge_index.size()}")
+
+                print(f"global_adj_list length: {len(global_adj_list)}")
+                for i, adj in enumerate(global_adj_list):
+                    print(f"global_adj_list[{i}] size: {adj.size()}")
+
                 sub_x = data.x[all_nodes].to(device)
                 #check data.x and sub_x shape
                 print(f"data.x shape: {data.x.shape}")
