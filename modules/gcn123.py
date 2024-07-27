@@ -17,7 +17,12 @@ class GCNConv(nn.Module):
 
     def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
         assert not torch.isnan(x).any(), "NaNs detected in input data to GCNConv."
-        
+        assert not torch.isinf(x).any(), "Inf values detected in input data to GCNConv."
+        assert not torch.isinf(self.weight).any(), "Inf values detected in GCNConv weights."
+        assert (x.abs() < 1e10).all(), "Extremely large values detected in input data to GCNConv."
+        assert (self.weight.abs() < 1e10).all(), "Extremely large values detected in GCNConv weights."
+        print(f"GCNConv: x max value: {x.max()}, min value: {x.min()}")
+        print(f"GCNConv: weight max value: {self.weight.max()}, min value: {self.weight.min()}")
         #print(f"GCNConv: x shape: {x.shape}, weight shape: {self.weight.shape}")
         support = torch.mm(x, self.weight)
         assert not torch.isnan(support).any(), "NaNs detected in support computation in GCNConv."
