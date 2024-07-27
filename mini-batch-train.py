@@ -153,7 +153,9 @@ def train(args: Arguments):
 
                 local_target_ids = node_map.map(target_nodes).to(device)
                 loss = loss_fn(logits[local_target_ids], data.y[target_nodes].to(device))
-
+                if torch.isnan(loss):
+                    print("NaN loss detected")
+                    continue
                 print(loss.item())
 
                 batch_loss = loss.item()

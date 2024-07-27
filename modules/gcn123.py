@@ -11,10 +11,16 @@ class GCNConv(nn.Module):
         super(GCNConv, self).__init__()
         self.weight = nn.Parameter(torch.Tensor(in_channels, out_channels))
         nn.init.xavier_uniform_(self.weight)
+        # Check for NaNs in the initialized weights
+        assert not torch.isnan(self.weight).any(), "NaNs detected in GCNConv weights after initialization."
+
 
     def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
+        assert not torch.isnan(x).any(), "NaNs detected in input data to GCNConv."
+        
         #print(f"GCNConv: x shape: {x.shape}, weight shape: {self.weight.shape}")
         support = torch.mm(x, self.weight)
+        assert not torch.isnan(support).any(), "NaNs detected in support computation in GCNConv."
 
         # add self-loops to sparse coo tensor and normalize the adjacency matrix
         adjacency = add_self_loops(adjacency)
@@ -28,7 +34,8 @@ class GCNConv(nn.Module):
         #    laplacian = laplacian.to_sparse()
         #print(f"GCNConv: adjacency shape: {adjacency.shape}, support shape: {support.shape}")
         output = torch.sparse.mm(adjacency, support)
-
+        assert not torch.isnan(output).any(), "NaNs detected in GCNConv output."
+        
         #if torch.isnan(output).any():
         #    raise ValueError("NaNs detected in GCNConv output.")
         
@@ -48,15 +55,19 @@ class GCN(nn.Module):
 
 
     def forward(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> torch.Tensor:
+        assert not torch.isnan(x).any(), "NaNs detected in input data to GCN."
+        
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
             x = torch.relu(layer(x, adj))
             x = F.dropout(x, p=self.dropout, training=self.training)
+            assert not torch.isnan(x).any(), f"NaNs detected after layer {i} in GCN."
 
         adj = adjacency[0] if isinstance(adjacency, list) else adjacency
         logits = self.gcn_layers[-1](x, adj)
         logits = F.dropout(logits, p=self.dropout, training=self.training)
-
+        assert not torch.isnan(logits).any(), "NaNs detected in final output of GCN."
+        
         memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
         
         return logits, memory_alloc
