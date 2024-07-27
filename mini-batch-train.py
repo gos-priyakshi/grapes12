@@ -148,6 +148,10 @@ def train(args: Arguments):
                 global_adj_list = [convert_edge_index_to_adj_sparse(local_edge_index, len(all_nodes)) for local_edge_index in local_edge_indices]
             
                 sub_x = data.x[all_nodes].to(device)
+                #check data.x and sub_x shape
+                print(data.x.shape)
+                print(sub_x.shape)
+
 
                 logits, _ = gcn_c(sub_x, global_adj_list)
 

@@ -19,8 +19,7 @@ class GCNConv(nn.Module):
         
         #print(f"GCNConv: x shape: {x.shape}, weight shape: {self.weight.shape}")
         support = torch.mm(x, self.weight)
-        # Clear CUDA cache to free up memory
-        torch.cuda.empty_cache()
+    
         # add self-loops to sparse coo tensor and normalize the adjacency matrix
         adjacency = add_self_loops(adjacency)
         adjacency = normalize_laplacian_sparse(adjacency)
