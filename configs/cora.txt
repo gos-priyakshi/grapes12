@@ -1,4 +1,4 @@
---batch_size 256
+--batch_size 16
 --dataset "cora"
 --eval_frequency 15
 --eval_full_batch true
