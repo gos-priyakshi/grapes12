@@ -149,6 +149,9 @@ def train(args: Arguments):
 
                     previous_nodes = batch_nodes.clone()
 
+                    # print number of true in all_nodes_mask
+                    print(f"Number of True in all_nodes_mask: {all_nodes_mask.sum()}")
+
                 all_nodes = node_map.values[all_nodes_mask]
                 print(f"all_nodes size: {all_nodes.size()}")
                 node_map.update(all_nodes)
