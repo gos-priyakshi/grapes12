@@ -1,4 +1,4 @@
---batch_size 16
+--batch_size 2
 --dataset "flickr"
 --eval_frequency 50
 --eval_full_batch true
