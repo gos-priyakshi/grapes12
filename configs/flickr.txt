@@ -13,7 +13,7 @@
 --model_type "gcn"
 --num_samples 256
 --reg_param 0.0
---sampling_hops 33
+--sampling_hops 65
 --use_indicators true
 --dropout 0.0
 --runs 1
