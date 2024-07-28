@@ -368,7 +368,7 @@ class GAT(nn.Module):
                              ) -> List[torch.Tensor]:
         
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16, 32, 64, 128]
+        target_layers = [2, 4, 8, 16, 32, 64]
 
         for i, layer in enumerate(self.gat_layers[:-1], start=1):
             edges = edge_index[-i] if type(edge_index) == list else edge_index

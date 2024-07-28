@@ -94,7 +94,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GAT(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes]).to(device)
+        gcn_c = GAT(data.num_features, hidden_dims=[args.hidden_dim] * 64 + [num_classes]).to(device)
     # GCN model for GFlotNet sampling
     gcn_gf = GCN(data.num_features + num_indicators, hidden_dims=[args.hidden_dim] * 1 + [1]).to(device)
 
@@ -369,7 +369,7 @@ def train(args: Arguments):
 
     
     
-    layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
+    layer_nums = [2, 4, 8, 16, 32, 64, -1]
 
     #dirichlet_energies = energy_sampling(args, gcn_gf, gcn_c, val_loader, node_map, data, adjacency, num_indicators, layer_nums=layer_nums, device=device)
     dirichlet_energies = energy_full(args, gcn_c, data, layer_nums=layer_nums)
