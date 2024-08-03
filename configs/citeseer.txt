@@ -1,7 +1,7 @@
 --batch_size 256
 --dataset "citeseer"
 --eval_frequency 10
---eval_full_batch true
+--eval_full_batch false
 --eval_on_cpu true
 --hidden_dim 256
 --log_wandb true
@@ -13,7 +13,7 @@
 --model_type "gcn"
 --num_samples 256
 --reg_param 0.0
---sampling_hops 129
+--sampling_hops 33
 --use_indicators true
 --dropout 0.0
 --runs 1

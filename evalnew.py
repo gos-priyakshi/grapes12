@@ -140,7 +140,8 @@ def evaluate(gcn_c: torch.nn.Module,
                                   ).to(device)
                 else:
                     x = data.x[batch_nodes].to(device)
-
+                num_nodes = len(torch.unique(local_neighborhoods))
+                local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes)
                 # Get probabilities for sampling each node
                 node_logits, _ = gcn_gf(x, local_neighborhoods)
                 # Select logits for neighbor nodes only
@@ -173,11 +174,13 @@ def evaluate(gcn_c: torch.nn.Module,
             all_nodes = node_map.values[all_nodes_mask]
             node_map.update(all_nodes)
             edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+            num_nodes = len(torch.unique(all_nodes))
+            adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in edge_indices]
             # check if edge_indices length is equal to the number of hops
             print(len(edge_indices), args.sampling_hops)
 
             x = data.x[all_nodes].to(device)
-            logits_total, _ = gcn_c(x, edge_indices)
+            logits_total, _ = gcn_c(x, adj_matrices)
             predictions = torch.argmax(logits_total, dim=1)
             predictions = predictions[node_map.map(target_nodes)]  # map back to original node IDs
 
@@ -188,5 +191,7 @@ def evaluate(gcn_c: torch.nn.Module,
 
         accuracy = accuracy_score(targets, all_predictions)
         f1 = f1_score(targets, all_predictions, average='micro')
+
+        e1 = e2 = 0
 
     return accuracy, f1, e1, e2
