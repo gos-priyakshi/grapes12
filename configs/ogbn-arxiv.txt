@@ -2,7 +2,7 @@
 --dataset "arxiv"
 --eval_frequency 50
 --eval_full_batch false
---eval_on_cpu true
+--eval_on_cpu false
 --hidden_dim 256
 --log_wandb true
 --log_z_init 0.0

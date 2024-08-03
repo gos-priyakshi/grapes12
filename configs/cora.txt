@@ -1,8 +1,8 @@
 --batch_size 256
 --dataset "cora"
 --eval_frequency 15
---eval_full_batch true
---eval_on_cpu true
+--eval_full_batch false
+--eval_on_cpu false
 --hidden_dim 256
 --log_wandb true
 --log_z_init 0.0
