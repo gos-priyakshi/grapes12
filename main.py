@@ -15,7 +15,7 @@ import random
 
 from eval import evaluate
 from modules.data import get_data
-from modules.gcn123 import ResGCN, GCNII, GAT, GATv2
+from modules.gcn123 import ResGCN, GCNII, GAT
 from modules.gcn import GCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
                            sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse, normalize_laplacian)
