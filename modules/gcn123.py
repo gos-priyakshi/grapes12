@@ -67,7 +67,7 @@ class GCN(nn.Module):
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
         intermediate_outputs = []
 
-        target_layers = [2, 4, 8, 16, 32]
+        target_layers = [2, 4, 8, 16]
         
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
@@ -188,7 +188,7 @@ class ResGCN(nn.Module):
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
 
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16, 32]
+        target_layers = [2, 4, 8, 16]
 
         x_0 = self.transform(x)
 
@@ -306,7 +306,7 @@ class GCNII(nn.Module):
         x = h0 
 
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16, 32]
+        target_layers = [2, 4, 8, 16]
 
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
@@ -368,7 +368,7 @@ class GAT(nn.Module):
                              ) -> List[torch.Tensor]:
         
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16, 32]
+        target_layers = [2, 4, 8, 16]
 
         for i, layer in enumerate(self.gat_layers[:-1], start=1):
             edges = edge_index[-i] if type(edge_index) == list else edge_index
@@ -392,88 +392,3 @@ class GAT(nn.Module):
 
 
         
-
-# GATv2
-
-class GATv2(nn.Module):
-    def __init__(self,
-                 in_features: int,
-                 hidden_dims: List[int],
-                 heads: int = 1,
-                 dropout: float = 0.6):
-        super(GATv2, self).__init__()
-
-        dims = [in_features] + hidden_dims
-        gatv2_layers = []
-        for i in range(len(hidden_dims) - 1):
-            gatv2_layers.append(GATv2Conv(in_channels=dims[i],
-                                          out_channels=dims[i + 1] // heads,
-                                          heads=heads,
-                                          dropout=dropout,
-                                          concat=True))
-
-        gatv2_layers.append(GATv2Conv(in_channels=dims[-2],
-                                      out_channels=dims[-1],
-                                      heads=heads,
-                                      dropout=dropout,
-                                      concat=False))
-        self.gatv2_layers = nn.ModuleList(gatv2_layers)
-        self.dropout = dropout
-
-    def forward(self,
-                x: torch.Tensor,
-                edge_index: Union[torch.Tensor, List[torch.Tensor]],
-                ) -> torch.Tensor:
-        layerwise_adjacency = isinstance(edge_index, list)
-
-        for i, layer in enumerate(self.gatv2_layers[:-1], start=1):
-            edges = edge_index[-i] if layerwise_adjacency else edge_index
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            x = F.elu(layer(x, edges))
-
-        edges = edge_index[0] if layerwise_adjacency else edge_index
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        logits = self.gatv2_layers[-1](x, edges)
-
-        # memory
-        memory_alloc = torch.cuda.memory_allocated() / (1024 * 1024)
-
-        return logits, memory_alloc
-
-
-    def intermediate_outputs(self,
-                             x: torch.Tensor,
-                             edge_index: Union[torch.Tensor, list[torch.Tensor]],
-                             ) -> List[torch.Tensor]:
-        
-        intermediate_outputs = []
-        target_layers = [2, 4, 8]
-
-        for i, layer in enumerate(self.gatv2_layers[:-1], start=1):
-            edges = edge_index[-i] if type(edge_index) == list else edge_index
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            x = F.elu(layer(x, edges))
-            if i in target_layers:
-                intermediate_outputs.append(x.clone())
-
-        edges = edge_index[0] if type(edge_index) == list else edge_index
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        logits = self.gatv2_layers[-1](x, edges)
-
-        intermediate_outputs.append(logits)
-
-        return intermediate_outputs
-    
-    def calculate_metrics(self, x: torch.Tensor, adjacency: Union[torch.Tensor, list[torch.Tensor]]):
-        adj = adjacency if not isinstance(adjacency, list) else adjacency.pop(0)
-        energy1 = calculate_dirichlet_energy2(x, adj)
-        energy2 = calculate_dirichlet_energy1(x, adj)
-        return energy1, energy2
-    
-
-    
-    
-    
-
-
-    
