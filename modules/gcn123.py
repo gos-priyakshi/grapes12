@@ -67,7 +67,7 @@ class GCN(nn.Module):
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
         intermediate_outputs = []
 
-        target_layers = [2, 4, 8, 16]
+        target_layers = [2, 4, 8]
         
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
@@ -188,7 +188,7 @@ class ResGCN(nn.Module):
     def get_intermediate_outputs(self, x: torch.Tensor, adjacency: Union[torch.Tensor, List[torch.Tensor]]) -> List[torch.Tensor]:
 
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16]
+        target_layers = [2, 4, 8]
 
         x_0 = self.transform(x)
 
@@ -306,7 +306,7 @@ class GCNII(nn.Module):
         x = h0 
 
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16]
+        target_layers = [2, 4, 8]
 
         for i, layer in enumerate(self.gcn_layers[:-1]):
             adj = adjacency[-(i + 1)] if isinstance(adjacency, list) else adjacency
@@ -368,7 +368,7 @@ class GAT(nn.Module):
                              ) -> List[torch.Tensor]:
         
         intermediate_outputs = []
-        target_layers = [2, 4, 8, 16]
+        target_layers = [2, 4, 8]
 
         for i, layer in enumerate(self.gat_layers[:-1], start=1):
             edges = edge_index[-i] if type(edge_index) == list else edge_index
