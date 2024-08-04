@@ -70,7 +70,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 2 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
 
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
 
@@ -145,7 +145,7 @@ def train(args: Arguments):
 
     
     # Compute Dirichlet energies and MAD for specified layers at the end of training
-    layer_nums = [2, -1]
+    layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
     dirichlet_energies = {layer_num: [] for layer_num in layer_nums}
     #mads = {layer_num: [] for layer_num in layer_nums}
 

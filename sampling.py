@@ -93,7 +93,7 @@ def train(args: Arguments):
         num_indicators = 0
 
     if args.model_type == 'gcn':
-        gcn_c = GCNII(data.num_features, hidden_dims=[args.hidden_dim] * 2 + [num_classes], dropout=args.dropout).to(device)
+        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes], dropout=args.dropout).to(device)
     elif args.model_type == 'resgcn':
         gcn_c = ResGCN(data.num_features, hidden_dims=[args.hidden_dim] * 8 + [num_classes], dropout=args.dropout).to(device)
     elif args.model_type == 'gcn2':
@@ -372,7 +372,7 @@ def train(args: Arguments):
 
     
     
-    layer_nums = [2, -1]
+    layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
 
     dirichlet_energies = energy_sampling(args, gcn_gf, gcn_c, val_loader, node_map, data, adjacency, num_indicators, layer_nums=layer_nums, device=device)
     #dirichlet_energies = energy_full_batch(args, gcn_c, data, layer_nums=layer_nums)
