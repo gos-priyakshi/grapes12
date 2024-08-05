@@ -4,7 +4,7 @@ import numpy as np
 
 # Sample data
 x_values = ['2', '4', '8', '16', '32', '64', '128']
-y_gcn_s = [0.198, 0.118, 0.051, 0.009, 0.0000137, 5.878e-8, 3.824e-16]
+y_gcn_s = [0.5459, 0.1993, 0.03882, 0.002165, 0.000005923, 2.814e-11, 2.225e-21]
 y_gcn_f = [1.003, 0.5115, 0.1685, 0.0143, 0.000041, 4.152e-10, 1.066e-19]
 y_res_s = [0.5597, 0.6914, 0.6656, 0.6646, 0.7175, 0.664, 2.592]
 y_res_f = [3.67, 3.784, 3.798, 3.879, 3.815, 3.65, 26]
@@ -26,14 +26,15 @@ y_gat_f = np.log2(y_gat_f)
 
 # Plotting the curve
 # make the lines thicker
-plt.plot(x_values, y_gcn_s, label='GCN-grapes')
-plt.plot(x_values, y_gcn_f, label='GCN')
-plt.plot(x_values, y_res_s, label='ResNet-grapes')
-plt.plot(x_values, y_res_f, label='ResNet')
-plt.plot(x_values, y_gcn2_s, label='GCN2-grapes')
-plt.plot(x_values, y_gcn2_f, label='GCN2')
-plt.plot(x_values, y_gat_s, label='GAT-grapes')
-plt.plot(x_values, y_gat_f, label='GAT')
+plt.figure(figsize=(6, 5))
+plt.plot(x_values, y_gcn_s, label='GCN-grapes', linewidth=2)
+plt.plot(x_values, y_gcn_f, label='GCN', linewidth=2)
+plt.plot(x_values, y_res_s, label='ResNet-grapes', linewidth=2)
+plt.plot(x_values, y_res_f, label='ResNet', linewidth=2)
+plt.plot(x_values, y_gcn2_s, label='GCN2-grapes', linewidth=2)
+plt.plot(x_values, y_gcn2_f, label='GCN2', linewidth=2)
+plt.plot(x_values, y_gat_s, label='GAT-grapes', linewidth=2)
+plt.plot(x_values, y_gat_f, label='GAT', linewidth=2)
 #plt.plot(x_values, y_3, label='res')
 plt.title('Cora')
 plt.xlabel('Layers')
