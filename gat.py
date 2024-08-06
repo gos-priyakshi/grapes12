@@ -1,4 +1,5 @@
 import os
+from pydoc import cli
 
 import numpy as np
 import scipy.sparse as sp
@@ -9,12 +10,16 @@ from tap import Tap
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+import time
+import random
 
 from eval import evaluate
 from modules.data import get_data
-from modules.gcn import GCN, GAT
+from modules.gcn123 import ResGCN, GCNII, GAT
+from modules.gcn import GCN
 from modules.utils import (TensorMap, get_logger, get_neighborhoods,
-                           sample_neighborhoods_from_probs, slice_adjacency)
+                           sample_neighborhoods_from_probs, slice_adjacency, convert_edge_index_to_adj_sparse, normalize_laplacian)
+from energy import energy_s, energy_full
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -27,8 +32,8 @@ else:
 class Arguments(Tap):
     dataset: str = 'cora'
 
-    sampling_hops: int = 5
-    num_samples: int = 32
+    sampling_hops: int = 2
+    num_samples: int = 64
     use_indicators: bool = True
     lr_gf: float = 1e-4 # learning rate for the GCN-GF model
     lr_gc: float = 1e-3 # learning rate for the GCN model
@@ -37,15 +42,16 @@ class Arguments(Tap):
     reg_param: float = 0. # regularization parameter for the GCN model
     dropout: float = 0.
 
-    model_type: str = 'gat' 
+    model_type: str = 'gcn' 
     hidden_dim: int = 256
     max_epochs: int = 30
     batch_size: int = 512
-    eval_frequency: int = 1 
+    eval_frequency: int = 1
+    num_eval_batches: int = 10
     eval_on_cpu: bool = True 
     eval_full_batch: bool = True
-
-    runs: int = 5
+   
+    runs: int = 10
     notes: str = None
     log_wandb: bool = True
     config_file: str = None
@@ -87,14 +93,10 @@ def train(args: Arguments):
     else:
         num_indicators = 0
 
-    if args.model_type == 'gat':
-        gcn_c = GAT(data.num_features, hidden_dims=[args.hidden_dim, args.hidden_dim, args.hidden_dim, args.hidden_dim, num_classes]).to(device)
-    else:
-        gcn_c = GCN(data.num_features, hidden_dims=[args.hidden_dim, num_classes]).to(device)
-
+    if args.model_type == 'gcn':
+        gcn_c = GAT(data.num_features, hidden_dims=[args.hidden_dim] * 128 + [num_classes]).to(device)
     # GCN model for GFlotNet sampling
-    gcn_gf = GCN(data.num_features + num_indicators, hidden_dims=[args.hidden_dim, 1]).to(device)
-
+    gcn_gf = GCN(data.num_features + num_indicators, hidden_dims=[args.hidden_dim] * 1 + [1]).to(device)
 
     log_z = torch.tensor(args.log_z_init, requires_grad=True)
     optimizer_c = Adam(gcn_c.parameters(), lr=args.lr_gc)
@@ -116,7 +118,7 @@ def train(args: Arguments):
 
     adjacency = sp.csr_matrix((np.ones(data.num_edges, dtype=bool),
                                data.edge_index),
-                              shape=(data.num_nodes, data.num_nodes))
+                              shape=(data.num_nodes, data.num_nodes)) # NOT the normalized adjacency
 
     prev_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
     batch_nodes_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
@@ -146,7 +148,7 @@ def train(args: Arguments):
                 previous_nodes = target_nodes.clone()
                 all_nodes_mask = torch.zeros_like(prev_nodes_mask)
                 all_nodes_mask[target_nodes] = True
-
+            
                 indicator_features.zero_()
                 indicator_features[target_nodes, -1] = 1.0
 
@@ -167,6 +169,13 @@ def train(args: Arguments):
                     batch_nodes_mask[neighborhoods.view(-1)] = True
                     neighbor_nodes_mask = batch_nodes_mask & ~prev_nodes_mask
 
+                    #check if the device is correct
+                    #print(batch_nodes_mask.device)
+                    #print(neighbor_nodes_mask.device)
+                    #print(indicator_features.device)
+                    #print(node_map.values.device)
+
+                    
                     batch_nodes = node_map.values[batch_nodes_mask]
                     neighbor_nodes = node_map.values[neighbor_nodes_mask]
                     indicator_features[neighbor_nodes, hop] = 1.0
@@ -174,8 +183,21 @@ def train(args: Arguments):
                     # Map neighborhoods to local node IDs
                     node_map.update(batch_nodes)
                     local_neighborhoods = node_map.map(neighborhoods).to(device)
-                    # Select only the needed rows from the feature and
-                    # indicator matrices
+
+
+                    # and size
+                    #print(local_neighborhoods.size())
+                    # number of unique nodes in the local neighborhood
+                    #print(len(torch.unique(local_neighborhoods)))
+
+                    # convert to adjacency matrix
+                    num_nodes = len(torch.unique(local_neighborhoods))
+                    
+                    
+                    #start = time.time()
+                    #local_neighborhoods = convert_edge_index_to_adj_sparse(local_neighborhoods, num_nodes) ## torch coo tensor
+                    #print('time', time.time() - start)   
+
                     if args.use_indicators:
                         x = torch.cat([data.x[batch_nodes],
                                        indicator_features[batch_nodes]],
@@ -185,7 +207,7 @@ def train(args: Arguments):
                         x = data.x[batch_nodes].to(device)
 
                     # Get probabilities for sampling each node
-                    node_logits, _ = gcn_gf(x, local_neighborhoods)
+                    node_logits, _ = gcn_gf(x, local_neighborhoods) 
                     # Select logits for neighbor nodes only
                     node_logits = node_logits[node_map.map(neighbor_nodes)]
 
@@ -203,9 +225,14 @@ def train(args: Arguments):
                     all_statistics.append(statistics)
 
                     # Update batch nodes for next hop
+
+                    #print(target_nodes.device)
+                    #print(sampled_neighboring_nodes.device)
+
                     batch_nodes = torch.cat([target_nodes,
                                              sampled_neighboring_nodes],
                                             dim=0)
+
 
                     # Retrieve the edge index that results after sampling
                     k_hop_edges = slice_adjacency(adjacency,
@@ -221,10 +248,17 @@ def train(args: Arguments):
                 # hop concatenated with the target nodes
                 all_nodes = node_map.values[all_nodes_mask]
                 node_map.update(all_nodes)
-                edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+                local_edge_indices = [node_map.map(e).to(device) for e in global_edge_indices]
+                # convert to adjacency matrices
+                num_nodes = len(torch.unique(all_nodes))
+                #adj_matrices = [convert_edge_index_to_adj_sparse(e, num_nodes) for e in local_edge_indices]
+                # convert adjacency to normalized laplacian
+                # adj_matrices = [normalize_laplacian(e) for e in adj_matrices]
 
                 x = data.x[all_nodes].to(device)
-                logits, gcn_mem_alloc = gcn_c(x, edge_indices)
+                logits, gcn_mem_alloc = gcn_c(x, local_edge_indices)
+
+                # calculate metrics in the last epo
 
                 local_target_ids = node_map.map(target_nodes)
                 loss_c = loss_fn(logits[local_target_ids],
@@ -236,6 +270,10 @@ def train(args: Arguments):
 
                 loss_c.backward()
 
+                # add gradient clipping
+                #clip_value = 0.5
+                #torch.nn.utils.clip_grad_norm_(gcn_c.parameters(), clip_value)
+
                 optimizer_c.step()
 
                 optimizer_gf.zero_grad()
@@ -243,15 +281,21 @@ def train(args: Arguments):
 
                 loss_gfn = (log_z + torch.sum(torch.cat(log_probs, dim=0)) + args.loss_coef*cost_gfn)**2
 
+
                 mem_allocations_point1.append(torch.cuda.max_memory_allocated() / (1024 * 1024))
                 mem_allocations_point2.append(gcn_mem_alloc)
 
                 loss_gfn.backward()
 
+                #torch.nn.utils.clip_grad_norm_(gcn_gf.parameters(), clip_value)
+
                 optimizer_gf.step()
 
                 batch_loss_gfn = loss_gfn.item()
                 batch_loss_c = loss_c.item()
+
+                #print(next(gcn_c.parameters()).device)
+                #print(next(gcn_gf.parameters()).device)
 
                 wandb.log({'batch_loss_gfn': batch_loss_gfn,
                            'batch_loss_c': batch_loss_c,
@@ -275,12 +319,14 @@ def train(args: Arguments):
 
         bar.close()
 
+        
+
         all_mem_allocations_point1.extend(mem_allocations_point1)
         all_mem_allocations_point2.extend(mem_allocations_point2)
         all_mem_allocations_point3.extend(mem_allocations_point3)
 
         if (epoch + 1) % args.eval_frequency == 0:
-            accuracy, f1 = evaluate(gcn_c,
+            accuracy, f1, _, _ = evaluate(gcn_c,
                                     gcn_gf,
                                     data,
                                     args,
@@ -301,6 +347,10 @@ def train(args: Arguments):
                         'loss_c': acc_loss_c,
                         'valid_accuracy': accuracy,
                         'valid_f1': f1}
+            
+            # log dirichlet energy values
+            #log_dict['dirichlet_energy'] = gcn_c.get_dirichlet_energy()
+            #log_dict['mad'] = gcn_c.get_mean_average_distance()
 
             logger.info(f'loss_gfn={acc_loss_gfn:.6f}, '
                         f'loss_c={acc_loss_c:.6f}, '
@@ -308,7 +358,37 @@ def train(args: Arguments):
                         f'valid_f1={f1:.3f}')
             wandb.log(log_dict)
 
-    test_accuracy, test_f1 = evaluate(gcn_c,
+    # calculate dirichlet energy and mean average distance
+    #x = data.x[all_nodes].to(device)
+    #logits, _ = gcn_c(x, adj_matrices)
+    #energy1, energy2, mad = gcn_c.calculate_metrics(logits, adj_matrices)
+
+    #wandb.log({'dirichlet_energy 1': energy1,
+    #           'dirichlet_energy 2': energy2,
+    #           'mad': mad})
+
+    
+    
+    layer_nums = [2, 4, 8, 16, 32, 64, 128, -1]
+
+    dirichlet_energies = energy_s(args, gcn_gf, gcn_c, val_loader, node_map, data, adjacency, num_indicators, layer_nums=layer_nums, device=device)
+    #dirichlet_energies = energy_full(args, gcn_c, data, layer_nums=layer_nums)
+
+
+
+    for layer_num in layer_nums:
+        avg_energy1 = sum(e[0] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        avg_energy2 = sum(e[1] for e in dirichlet_energies[layer_num]) / len(dirichlet_energies[layer_num])
+        #avg_mad = sum(mads[layer_num]) / len(mads[layer_num])
+
+        wandb.log({f'avg_dirichlet_energy_1_{layer_num}': avg_energy1,
+                   f'avg_dirichlet_energy_2_{layer_num}': avg_energy2})
+        
+        logger.info(f'Final Dirichlet Energy 1 at layer {layer_num}: {avg_energy1:.6f}, '
+                    f'Final Dirichlet Energy 2 at layer {layer_num}: {avg_energy2:.6f}, ')
+    
+
+    test_accuracy, test_f1, e1, e2 = evaluate(gcn_c,
                                       gcn_gf,
                                       data,
                                       args,
@@ -320,8 +400,11 @@ def train(args: Arguments):
                                       args.eval_on_cpu,
                                       loader=test_loader,
                                       full_batch=args.eval_full_batch)
+
     wandb.log({'test_accuracy': test_accuracy,
-               'test_f1': test_f1})
+               'test_f1': test_f1,
+               'de1': e1,
+               'de2': e2})
     logger.info(f'test_accuracy={test_accuracy:.3f}, '
                 f'test_f1={test_f1:.3f}')
     return test_f1, all_mem_allocations_point1, all_mem_allocations_point2, all_mem_allocations_point3
