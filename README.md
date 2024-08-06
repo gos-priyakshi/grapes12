@@ -1,9 +1,7 @@
-<div align="center">
-<img src="grapes-logo.png" alt="drawing" style="width:400px;"/>
-</div>
-<br>
 
-This repository contains the official implementation of the graph sampling method presented in ["GRAPES: Learning to Sample Graphs for Scalable Graph Neural Networks"](https://arxiv.org/abs/2310.03399).
+
+This repository contains the official implementation of the graph sampling method presented in ["An Empirical Study of Over-smoothing in GNN architectures trained using Graph Adaptive
+ Sampling"]
 
 ## Instructions
 
@@ -21,14 +19,14 @@ conda activate grapes
 Run the following to train a GCN classifier on the Cora dataset:
 
 ```sh
-python main.py
+python sampling.py
 ```
 
 We provide configuration files to reproduce the results in our experiments with all datasets.
 To use them, run:
 
 ```sh
-python main.py --config_file=configs/<dataset>.txt
+python sampling.py --config_file=configs/<dataset>.txt
 ```
 
 Replacing `<dataset>` with the name of the dataset.
