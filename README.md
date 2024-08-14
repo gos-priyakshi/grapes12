@@ -14,7 +14,7 @@ conda env create -f environment.yml
 conda activate grapes
 ```
 
-### 2. Train a model
+### 2. Train a model and get dirichlet energies
 
 Run the following to train a GCN classifier on the Cora dataset:
 
